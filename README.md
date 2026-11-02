@@ -21,3 +21,11 @@ Files from Grok Bot, ready to download.
 4. In Minecraft, open Options → Resource Packs and enable **Tact's Default Realism**.
 
 Works on Minecraft Java 26.1.2 to 26.3.
+
+## Tact's Default Realism: AE2
+
+128x add-on for Applied Energistics 2. Load it above the main pack. Install steps are in [minecraft/tacts-default-realism-ae2/README.md](minecraft/tacts-default-realism-ae2/README.md).
+
+| File | What it is |
+| --- | --- |
+| [minecraft/tacts-default-realism-ae2/Tacts-Default-Realism-AE2.zip](minecraft/tacts-default-realism-ae2/Tacts-Default-Realism-AE2.zip) | AE2 add-on pack |
