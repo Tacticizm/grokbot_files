@@ -37,3 +37,11 @@ Works on Minecraft Java 26.1.2 to 26.3.
 | File | What it is |
 | --- | --- |
 | [minecraft/tacts-default-realism-laserio/Tacts-Default-Realism-LaserIO.zip](minecraft/tacts-default-realism-laserio/Tacts-Default-Realism-LaserIO.zip) | LaserIO add-on pack |
+
+## Tact's Default Realism: Just Dire Things
+
+128x add-on for Just Dire Things. Either pack order works. Install steps are in [minecraft/tacts-default-realism-jdt/README-JDT.md](minecraft/tacts-default-realism-jdt/README-JDT.md).
+
+| File | What it is |
+| --- | --- |
+| [minecraft/tacts-default-realism-jdt/Tacts-Default-Realism-JDT.zip](minecraft/tacts-default-realism-jdt/Tacts-Default-Realism-JDT.zip) | Just Dire Things add-on pack |
