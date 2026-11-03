@@ -45,3 +45,11 @@ Works on Minecraft Java 26.1.2 to 26.3.
 | File | What it is |
 | --- | --- |
 | [minecraft/tacts-default-realism-jdt/Tacts-Default-Realism-JDT.zip](minecraft/tacts-default-realism-jdt/Tacts-Default-Realism-JDT.zip) | Just Dire Things add-on pack |
+
+## Tact's Default Realism: AE2 Dark GUI
+
+Dark theme for Applied Energistics 2 screens. Any pack order works. Install steps are in [minecraft/tacts-default-realism-ae2-dark-gui/README-AE2-Dark-GUI.md](minecraft/tacts-default-realism-ae2-dark-gui/README-AE2-Dark-GUI.md).
+
+| File | What it is |
+| --- | --- |
+| [minecraft/tacts-default-realism-ae2-dark-gui/Tacts-Default-Realism-AE2-Dark-GUI.zip](minecraft/tacts-default-realism-ae2-dark-gui/Tacts-Default-Realism-AE2-Dark-GUI.zip) | AE2 Dark GUI add-on pack |
