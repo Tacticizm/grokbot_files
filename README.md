@@ -1,1 +1,55 @@
 # grokbot_files
+
+Files from Grok Bot, ready to download.
+
+## Tact's Default Realism
+
+128x Minecraft Java resource pack. The file to install is the combined zip. The three numbered zips are the split backup parts (blocks A–M, blocks M–Z, items and extras).
+
+| File | What it is |
+| --- | --- |
+| [minecraft/tacts-default-realism/Tacts-Default-Realism.zip](minecraft/tacts-default-realism/Tacts-Default-Realism.zip) | Combined pack |
+| [minecraft/tacts-default-realism/Tacts-Default-Realism-1.zip](minecraft/tacts-default-realism/Tacts-Default-Realism-1.zip) | Backup part 1, blocks A–M |
+| [minecraft/tacts-default-realism/Tacts-Default-Realism-2.zip](minecraft/tacts-default-realism/Tacts-Default-Realism-2.zip) | Backup part 2, blocks M–Z |
+| [minecraft/tacts-default-realism/Tacts-Default-Realism-3.zip](minecraft/tacts-default-realism/Tacts-Default-Realism-3.zip) | Backup part 3, items and extras |
+
+### Install
+
+1. Download `Tacts-Default-Realism.zip`.
+2. Leave it zipped. Do not unzip it.
+3. Drop the zip into `.minecraft/resourcepacks`.
+4. In Minecraft, open Options → Resource Packs and enable **Tact's Default Realism**.
+
+Works on Minecraft Java 26.1.2 to 26.3.
+
+## Tact's Default Realism: AE2
+
+128x add-on for Applied Energistics 2. Load it above the main pack. Install steps are in [minecraft/tacts-default-realism-ae2/README.md](minecraft/tacts-default-realism-ae2/README.md).
+
+| File | What it is |
+| --- | --- |
+| [minecraft/tacts-default-realism-ae2/Tacts-Default-Realism-AE2.zip](minecraft/tacts-default-realism-ae2/Tacts-Default-Realism-AE2.zip) | AE2 add-on pack |
+
+## Tact's Default Realism: LaserIO
+
+128x add-on for LaserIO. Either pack order works. Install steps are in [minecraft/tacts-default-realism-laserio/README.md](minecraft/tacts-default-realism-laserio/README.md).
+
+| File | What it is |
+| --- | --- |
+| [minecraft/tacts-default-realism-laserio/Tacts-Default-Realism-LaserIO.zip](minecraft/tacts-default-realism-laserio/Tacts-Default-Realism-LaserIO.zip) | LaserIO add-on pack |
+
+## Tact's Default Realism: Just Dire Things
+
+128x add-on for Just Dire Things. Either pack order works. Install steps are in [minecraft/tacts-default-realism-jdt/README-JDT.md](minecraft/tacts-default-realism-jdt/README-JDT.md).
+
+| File | What it is |
+| --- | --- |
+| [minecraft/tacts-default-realism-jdt/Tacts-Default-Realism-JDT.zip](minecraft/tacts-default-realism-jdt/Tacts-Default-Realism-JDT.zip) | Just Dire Things add-on pack |
+
+## Tact's Default Realism: AE2 Dark GUI
+
+Dark theme for Applied Energistics 2 screens. Any pack order works. Install steps are in [minecraft/tacts-default-realism-ae2-dark-gui/README-AE2-Dark-GUI.md](minecraft/tacts-default-realism-ae2-dark-gui/README-AE2-Dark-GUI.md).
+
+| File | What it is |
+| --- | --- |
+| [minecraft/tacts-default-realism-ae2-dark-gui/Tacts-Default-Realism-AE2-Dark-GUI.zip](minecraft/tacts-default-realism-ae2-dark-gui/Tacts-Default-Realism-AE2-Dark-GUI.zip) | AE2 Dark GUI add-on pack |
