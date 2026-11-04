@@ -24,7 +24,7 @@ public class BundleProviderScreen extends AbstractContainerScreen<BundleProvider
     private final List<Button> requestButtons = new ArrayList<>();
     private final List<Button> cancelButtons = new ArrayList<>();
     private EditBox setsBox;
-    private Button patternsTab, queueTab;
+    private Button patternsTab, queueTab, outputTab, sendButton;
     private int scroll;
 
     public BundleProviderScreen(BundleProviderMenu menu, Inventory inv, Component title) {
@@ -38,9 +38,14 @@ public class BundleProviderScreen extends AbstractContainerScreen<BundleProvider
         requestButtons.clear();
         cancelButtons.clear();
         patternsTab = addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.tab.patterns"),
-                b -> menu.queueView = false).bounds(leftPos + 92, topPos + 3, 44, 12).build());
+                b -> menu.tab = BundleProviderMenu.TAB_PATTERNS).bounds(leftPos + 56, topPos + 3, 44, 12).build());
+        outputTab = addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.tab.output"),
+                b -> menu.tab = BundleProviderMenu.TAB_OUTPUT).bounds(leftPos + 102, topPos + 3, 36, 12).build());
         queueTab = addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.tab.queue"),
-                b -> menu.queueView = true).bounds(leftPos + 138, topPos + 3, 32, 12).build());
+                b -> menu.tab = BundleProviderMenu.TAB_QUEUE).bounds(leftPos + 140, topPos + 3, 30, 12).build());
+        sendButton = addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.send_to_network"),
+                b -> ClientPacketDistributor.sendToServer(new ModNetwork.SendToNetwork(menu.pos)))
+                .bounds(leftPos + 8, topPos + 76 + 18, 100, 14).build());
         setsBox = addRenderableWidget(new EditBox(font, leftPos + 30, topPos + 76, 30, 12,
                 Component.translatable("screen.appliedcraftingbundles.sets")));
         setsBox.setValue("1");
@@ -82,12 +87,14 @@ public class BundleProviderScreen extends AbstractContainerScreen<BundleProvider
     }
 
     private void updateWidgets() {
-        boolean q = menu.queueView;
-        patternsTab.active = q;
+        boolean q = menu.tab == BundleProviderMenu.TAB_QUEUE, pat = menu.tab == BundleProviderMenu.TAB_PATTERNS;
+        patternsTab.active = !pat;
         queueTab.active = !q;
-        setsBox.visible = !q;
+        outputTab.active = menu.tab != BundleProviderMenu.TAB_OUTPUT;
+        sendButton.visible = menu.tab == BundleProviderMenu.TAB_OUTPUT;
+        setsBox.visible = pat;
         for (int i = 0; i < requestButtons.size(); i++) {
-            requestButtons.get(i).visible = !q && bundleAt(i) != null;
+            requestButtons.get(i).visible = pat && bundleAt(i) != null;
         }
         scroll = Math.max(0, Math.min(scroll, menu.clientPieces.size() - QUEUE_ROWS));
         for (int i = 0; i < cancelButtons.size(); i++) {
@@ -105,7 +112,7 @@ public class BundleProviderScreen extends AbstractContainerScreen<BundleProvider
 
     @Override
     public boolean mouseScrolled(double x, double y, double sx, double sy) {
-        if (menu.queueView) {
+        if (menu.tab == BundleProviderMenu.TAB_QUEUE) {
             scroll -= (int) Math.signum(sy);
             updateWidgets();
             return true;
@@ -130,7 +137,10 @@ public class BundleProviderScreen extends AbstractContainerScreen<BundleProvider
                 Panels.slot(g, leftPos + slot.x, topPos + slot.y);
             }
         }
-        if (menu.queueView) {
+        if (menu.tab == BundleProviderMenu.TAB_OUTPUT) {
+            return;
+        }
+        if (menu.tab == BundleProviderMenu.TAB_QUEUE) {
             g.fill(leftPos + 6, topPos + 16, leftPos + 170, topPos + 18 + QUEUE_ROWS * QUEUE_ROW_H, 0xFF8B8B8B);
         } else {
             g.fill(leftPos + LIST_X - 2, topPos + 16, leftPos + 170, topPos + 18 + 9 * ROW_H, 0xFF8B8B8B);
@@ -140,7 +150,10 @@ public class BundleProviderScreen extends AbstractContainerScreen<BundleProvider
     @Override
     protected void extractLabels(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         super.extractLabels(g, mouseX, mouseY);
-        if (!menu.queueView) {
+        if (menu.tab == BundleProviderMenu.TAB_OUTPUT) {
+            return;
+        }
+        if (menu.tab == BundleProviderMenu.TAB_PATTERNS) {
             g.text(font, Component.translatable("screen.appliedcraftingbundles.sets"), 8, 78, Panels.TEXT, false);
             for (int i = 0; i < BundleProviderBlockEntity.SLOTS; i++) {
                 var b = bundleAt(i);

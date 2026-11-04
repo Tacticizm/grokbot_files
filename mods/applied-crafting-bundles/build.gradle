@@ -128,7 +128,8 @@ configurations {
 
 dependencies {
     // AE2: compile against the API, run with the full mod
-    compileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}:api"
+    // Full jar: the Bundle Encoder part and wireless terminal extend AE2 base classes (PartItem, AbstractDisplayPart, WirelessTerminalItem).
+    compileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}"
     runtimeOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}"
     // Tests may use AE2 internals to build a network; the mod itself only uses the API.
     gametestCompileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}"

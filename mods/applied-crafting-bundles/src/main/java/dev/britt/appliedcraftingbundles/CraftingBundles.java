@@ -19,6 +19,10 @@ public class CraftingBundles {
         modBus.addListener(ModItems::addToCreativeTab);
         ModMenus.MENUS.register(modBus);
         modBus.addListener(ModNetwork::register);
+        modBus.addListener((net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent e) -> e.enqueueWork(() ->
+                appeng.api.features.GridLinkables.register(ModItems.WIRELESS_TERMINAL.get(),
+                        appeng.items.tools.powered.WirelessTerminalItem.LINKABLE_HANDLER)));
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(WirelessRequests::tick);
         LOGGER.info("Applied: Crafting Bundles loading");
     }
 }

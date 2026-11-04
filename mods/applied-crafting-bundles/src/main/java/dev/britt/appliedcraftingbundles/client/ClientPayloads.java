@@ -17,6 +17,10 @@ public final class ClientPayloads {
         Minecraft.getInstance().setScreen(new MissingPiecesScreen(p));
     }
 
+    public static void craftError(ModNetwork.CraftError p) {
+        Minecraft.getInstance().setScreen(new CraftErrorScreen(p));
+    }
+
     private ClientPayloads() {
     }
 }

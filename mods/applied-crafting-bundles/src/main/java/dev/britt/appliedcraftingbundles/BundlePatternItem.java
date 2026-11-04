@@ -20,14 +20,12 @@ public class BundlePatternItem extends Item {
         super(properties);
     }
 
-    /** Right-click in the air: open the Bundle Encoder. */
-    @Override
-    public InteractionResult use(Level level, Player player, InteractionHand hand) {
-        if (player instanceof ServerPlayer sp) {
-            sp.openMenu(new SimpleMenuProvider((id, inv, p) -> new BundleEncoderMenu(id, inv, hand),
-                    Component.translatable("screen.appliedcraftingbundles.encoder")), buf -> buf.writeEnum(hand));
-        }
-        return InteractionResult.SUCCESS;
+    /** A single encoded pattern. Encoded patterns don't stack (blanks stack to 64), like AE2's. */
+    public static ItemStack encoded(BundleContents contents) {
+        ItemStack stack = new ItemStack(ModItems.BUNDLE_PATTERN.get());
+        stack.set(ModComponents.BUNDLE_CONTENTS.get(), contents);
+        stack.set(net.minecraft.core.component.DataComponents.MAX_STACK_SIZE, 1);
+        return stack;
     }
 
     @Override

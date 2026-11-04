@@ -14,6 +14,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.jetbrains.annotations.Nullable;
@@ -32,10 +33,26 @@ public class BundleEncoderScreen extends AbstractContainerScreen<BundleEncoderMe
     public BundleEncoderScreen(BundleEncoderMenu menu, Inventory inv, Component title) {
         super(menu, inv, title, 176, 202);
         this.inventoryLabelY = BundleEncoderMenu.INV_Y - 11;
-        BundleContents existing = inv.player.getItemInHand(menu.hand).get(ModComponents.BUNDLE_CONTENTS.get());
-        if (existing != null) {
-            for (int i = 0; i < existing.entries().size() && i < cells.length; i++) {
-                cells[i] = existing.entries().get(i);
+    }
+
+    /** Putting an encoded pattern in the input slot loads it for viewing/editing; a blank starts fresh. */
+    private ItemStack lastInput = ItemStack.EMPTY;
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        ItemStack in = menu.slots.get(0).getItem();
+        if (!ItemStack.matches(in, lastInput)) {
+            lastInput = in.copy();
+            BundleContents c = in.get(ModComponents.BUNDLE_CONTENTS.get());
+            if (c != null || in.is(dev.britt.appliedcraftingbundles.ModItems.BUNDLE_PATTERN.get())) {
+                java.util.Arrays.fill(cells, null);
+                if (c != null) {
+                    for (int i = 0; i < c.entries().size() && i < cells.length; i++) {
+                        cells[i] = c.entries().get(i);
+                    }
+                }
+                nameBox.setValue(c == null ? "" : c.name());
             }
         }
     }
@@ -49,10 +66,13 @@ public class BundleEncoderScreen extends AbstractContainerScreen<BundleEncoderMe
         nameBox.setMaxLength(ModNetwork.MAX_NAME);
         if (old != null) {
             nameBox.setValue(old);
-        } else {
-            BundleContents existing = menu.getCarried().isEmpty()
-                    ? minecraft.player.getItemInHand(menu.hand).get(ModComponents.BUNDLE_CONTENTS.get()) : null;
-            nameBox.setValue(existing == null ? "" : existing.name());
+        }
+        if (menu.wirelessHand != null) {
+            addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.tab.provider"),
+                    b -> ClientPacketDistributor.sendToServer(new ModNetwork.WirelessTab(menu.wirelessHand, false)))
+                    .bounds(leftPos + 80, topPos + 3, 44, 12).build());
+            addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.tab.encoder"), b -> {})
+                    .bounds(leftPos + 126, topPos + 3, 44, 12).build()).active = false;
         }
         addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.encoder.save"), b -> save())
                 .bounds(leftPos + 118, topPos + 86, 50, 18).build());
@@ -65,7 +85,7 @@ public class BundleEncoderScreen extends AbstractContainerScreen<BundleEncoderMe
                 entries.add(c);
             }
         }
-        ClientPacketDistributor.sendToServer(new ModNetwork.SaveBundle(menu.hand, nameBox.getValue(), entries));
+        ClientPacketDistributor.sendToServer(new ModNetwork.SaveBundle(nameBox.getValue(), entries));
     }
 
     private int cellAt(double mx, double my) {
@@ -136,6 +156,7 @@ public class BundleEncoderScreen extends AbstractContainerScreen<BundleEncoderMe
         super.extractLabels(g, mouseX, mouseY);
         g.text(font, Component.translatable("screen.appliedcraftingbundles.encoder.items"), CELL_X, CELL_Y - 10, Panels.TEXT, false);
         g.textWithWordWrap(font, Component.translatable("screen.appliedcraftingbundles.encoder.help"), 8, 66, 106, 0xFF606060, false);
+        g.text(font, "→", BundleEncoderMenu.IN_X + 19, BundleEncoderMenu.IO_Y + 4, Panels.TEXT, false);
         int i = cellAt(mouseX, mouseY);
         if (i >= 0 && cells[i] != null) {
             g.setTooltipForNextFrame(cells[i].create().getHoverName(), mouseX, mouseY);

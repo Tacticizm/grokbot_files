@@ -13,6 +13,7 @@ public final class ClientSetup {
     static void screens(RegisterMenuScreensEvent event) {
         event.register(ModMenus.BUNDLE_PROVIDER.get(), BundleProviderScreen::new);
         event.register(ModMenus.BUNDLE_ENCODER.get(), BundleEncoderScreen::new);
+        event.register(ModMenus.WIRELESS_PROVIDER.get(), WirelessProviderScreen::new);
     }
 
     private ClientSetup() {

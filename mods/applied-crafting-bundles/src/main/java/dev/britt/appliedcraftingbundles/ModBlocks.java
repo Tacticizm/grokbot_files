@@ -30,6 +30,13 @@ public final class ModBlocks {
     /** Lets AE2 cables find our grid node. */
     static void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(AECapabilities.IN_WORLD_GRID_NODE_HOST, BUNDLE_PROVIDER_BE.get(), (be, ctx) -> be);
+        // Lets AE2's charger and other energy sources charge the wireless terminal.
+        event.registerItem(net.neoforged.neoforge.capabilities.Capabilities.Energy.ITEM,
+                (stack, access) -> new appeng.items.tools.powered.powersink.PoweredItemCapabilities(access,
+                        ModItems.WIRELESS_TERMINAL.get(), ModItems.WIRELESS_TERMINAL.get()),
+                ModItems.WIRELESS_TERMINAL.get());
+        event.registerBlockEntity(net.neoforged.neoforge.capabilities.Capabilities.Item.BLOCK, BUNDLE_PROVIDER_BE.get(),
+                (be, side) -> net.neoforged.neoforge.transfer.item.VanillaContainerWrapper.of(be.getOutputContainer()));
     }
 
     private ModBlocks() {

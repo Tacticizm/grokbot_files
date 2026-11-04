@@ -25,6 +25,18 @@
   "screen.appliedcraftingbundles.encoder.name": "Bundle name",
   "screen.appliedcraftingbundles.encoder.items": "Items",
   "screen.appliedcraftingbundles.encoder.help": "Click: set. Right-click: clear. Scroll: count.",
-  "screen.appliedcraftingbundles.encoder.save": "Save",
-  "screen.appliedcraftingbundles.missing.select_all": "Select all craftable"
+  "screen.appliedcraftingbundles.encoder.save": "Encode",
+  "screen.appliedcraftingbundles.missing.select_all": "Select all craftable",
+  "screen.appliedcraftingbundles.missing.in_storage": "In storage",
+  "screen.appliedcraftingbundles.missing.partial": "%s from storage, rest crafted",
+  "screen.appliedcraftingbundles.tab.output": "Output",
+  "screen.appliedcraftingbundles.send_to_network": "Send to network",
+  "item.appliedcraftingbundles.bundle_encoder": "Bundle Encoder",
+  "item.appliedcraftingbundles.wireless_terminal": "Wireless Bundle Terminal",
+  "screen.appliedcraftingbundles.tab.provider": "Provider",
+  "screen.appliedcraftingbundles.tab.encoder": "Encoder",
+  "message.appliedcraftingbundles.out_of_range": "Out of range of a Wireless Access Point",
+  "message.appliedcraftingbundles.no_power": "Wireless Bundle Terminal is out of power",
+  "message.appliedcraftingbundles.started_wireless": "Bundle started: %s running, %s waiting for a crafting CPU",
+  "screen.appliedcraftingbundles.craft_error.title": "Couldn't start some pieces"
 }

@@ -13,6 +13,7 @@ import appeng.api.networking.crafting.CraftingSubmitErrorCode;
 import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
+import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
@@ -52,16 +53,24 @@ import org.jetbrains.annotations.Nullable;
  * otherwise wait in {@link #getMissingPieces()} for submitSelected(...) or cancelPending().
  */
 public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGridNodeHost, ICraftingRequester {
-    public static final int SLOTS = 9;
+    public static final int SLOTS = 9, OUTPUT_SLOTS = 27;
 
     /** One calculated entry of a bundle request. */
-    public record PlannedEntry(int index, ItemStackTemplate entry, long amount, ICraftingPlan plan) {
+    /** {@code fromStock} is taken straight from ME storage; only the rest ({@code plan}, null if none) is crafted. */
+    public record PlannedEntry(int index, ItemStackTemplate entry, long amount, long fromStock, @Nullable ICraftingPlan plan) {
         public boolean isMissing() {
-            return !plan.missingItems().isEmpty();
+            return plan != null && !plan.missingItems().isEmpty();
+        }
+
+        public boolean fullyInStock() {
+            return plan == null;
         }
 
         public List<GenericStack> missing() {
             var list = new ArrayList<GenericStack>();
+            if (plan == null) {
+                return list;
+            }
             for (var e : plan.missingItems()) {
                 list.add(new GenericStack(e.getKey(), e.getLongValue()));
             }
@@ -80,10 +89,11 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
         record Failed(String reason) implements Outcome {}
     }
 
-    private record Pending(BundleContents bundle, int sets, List<Future<ICraftingPlan>> futures,
-            Consumer<Outcome> callback) {}
+    private record Pending(Calc calc, Consumer<Outcome> callback) {}
 
     private final SimpleContainer patterns = newPatternContainer(this::setChanged);
+    /** Finished and in-stock pieces land here. Players, hoppers and pipes can only take items out. */
+    private final SimpleContainer output = newOutputContainer(this::setChanged);
     private final IManagedGridNode mainNode = GridHelper.createManagedNode(this, new IGridNodeListener<>() {
         @Override
         public void onSaveChanges(BundleProviderBlockEntity owner, IGridNode node) {
@@ -159,6 +169,77 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
         };
     }
 
+    public static SimpleContainer newOutputContainer(Runnable onChange) {
+        return new SimpleContainer(OUTPUT_SLOTS) {
+            @Override
+            public boolean canPlaceItem(int slot, ItemStack stack) {
+                return false;
+            }
+
+            @Override
+            public void setChanged() {
+                super.setChanged();
+                onChange.run();
+            }
+        };
+    }
+
+    public SimpleContainer getOutputContainer() {
+        return output;
+    }
+
+    /** Put up to {@code amount} of {@code key} into the output buffer; returns how much fits/fitted. */
+    public long insertOutput(AEItemKey key, long amount, boolean simulate) {
+        long left = amount;
+        int max = key.toStack().getMaxStackSize();
+        for (int i = 0; i < OUTPUT_SLOTS && left > 0; i++) {
+            ItemStack s = output.getItem(i);
+            int n;
+            if (s.isEmpty()) {
+                n = (int) Math.min(left, max);
+                if (!simulate) {
+                    output.setItem(i, key.toStack(n));
+                }
+            } else if (key.matches(s)) {
+                n = (int) Math.min(left, Math.max(0, max - s.getCount()));
+                if (!simulate) {
+                    s.grow(n);
+                }
+            } else {
+                continue;
+            }
+            left -= n;
+        }
+        if (!simulate && left < amount) {
+            output.setChanged();
+        }
+        return amount - left;
+    }
+
+    /** "Send to network": move everything in the output buffer into ME storage. Returns items moved. */
+    public long sendOutputToNetwork() {
+        IGrid grid = mainNode.getGrid();
+        if (grid == null || !mainNode.isActive()) {
+            return 0;
+        }
+        long moved = 0;
+        for (int i = 0; i < OUTPUT_SLOTS; i++) {
+            ItemStack s = output.getItem(i);
+            AEItemKey key = AEItemKey.of(s);
+            if (key == null) {
+                continue;
+            }
+            long in = StorageHelper.poweredInsert(grid.getEnergyService(), grid.getStorageService().getInventory(),
+                    key, s.getCount(), source(), Actionable.MODULATE);
+            s.shrink((int) in);
+            moved += in;
+        }
+        if (moved > 0) {
+            output.setChanged();
+        }
+        return moved;
+    }
+
     public SimpleContainer getPatternContainer() {
         return patterns;
     }
@@ -217,6 +298,7 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
         super.preRemoveSideEffects(pos, state);
         if (level != null) {
             Containers.dropContents(level, pos, patterns);
+            Containers.dropContents(level, pos, output);
         }
     }
 
@@ -246,7 +328,7 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
         }
     }
 
-    private static final Set<CraftingSubmitErrorCode> CPU_ERRORS = EnumSet.of(CraftingSubmitErrorCode.NO_CPU_FOUND,
+    static final Set<CraftingSubmitErrorCode> CPU_ERRORS = EnumSet.of(CraftingSubmitErrorCode.NO_CPU_FOUND,
             CraftingSubmitErrorCode.NO_SUITABLE_CPU_FOUND, CraftingSubmitErrorCode.CPU_BUSY,
             CraftingSubmitErrorCode.CPU_OFFLINE, CraftingSubmitErrorCode.CPU_TOO_SMALL);
     private static final int MAX_FINISHED_SHOWN = 20;
@@ -291,13 +373,51 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
             callback.accept(new Outcome.Failed("A bundle request is already pending"));
             return;
         }
+        calculating = new Pending(beginCalc(grid, level, this::source, bundle, sets), callback);
+    }
+
+    /** Stock check + one AE2 calculation per entry. {@code futures} entries are null for pieces fully in storage. */
+    public record Calc(BundleContents bundle, int sets, List<Long> fromStock, List<Future<ICraftingPlan>> futures) {
+        public boolean isDone() {
+            return futures.stream().allMatch(f -> f == null || f.isDone());
+        }
+
+        public List<PlannedEntry> collect() throws InterruptedException, ExecutionException {
+            var planned = new ArrayList<PlannedEntry>();
+            for (int i = 0; i < futures.size(); i++) {
+                ItemStackTemplate entry = bundle.entries().get(i);
+                var f = futures.get(i);
+                planned.add(new PlannedEntry(i, entry, (long) entry.count() * sets, fromStock.get(i), f == null ? null : f.get()));
+            }
+            return planned;
+        }
+
+        public void cancel() {
+            futures.forEach(f -> {
+                if (f != null) {
+                    f.cancel(true);
+                }
+            });
+        }
+    }
+
+    public static Calc beginCalc(IGrid grid, Level level, ICraftingSimulationRequester src, BundleContents bundle, int sets) {
         var crafting = grid.getCraftingService();
+        // Check storage first: AE2's planner reports stored-but-unpatterned items (e.g. redstone) as missing.
+        var stock = new java.util.HashMap<AEKey, Long>();
+        var fromStock = new ArrayList<Long>();
         var futures = new ArrayList<Future<ICraftingPlan>>();
         for (ItemStackTemplate entry : bundle.entries()) {
-            futures.add(crafting.beginCraftingCalculation(level, this::source, AEItemKey.of(entry),
-                    (long) entry.count() * sets, CalculationStrategy.REPORT_MISSING_ITEMS));
+            AEItemKey key = AEItemKey.of(entry);
+            long want = (long) entry.count() * sets;
+            long left = stock.computeIfAbsent(key, k -> grid.getStorageService().getCachedInventory().get(k));
+            long take = Math.min(want, left);
+            stock.put(key, left - take);
+            fromStock.add(take);
+            futures.add(take >= want ? null : crafting.beginCraftingCalculation(level, src, key,
+                    want - take, CalculationStrategy.REPORT_MISSING_ITEMS));
         }
-        calculating = new Pending(bundle, sets, futures, callback);
+        return new Calc(bundle, sets, fromStock, futures);
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, BundleProviderBlockEntity be) {
@@ -310,16 +430,13 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
 
     private void pollCalculations() {
         Pending p = calculating;
-        if (p == null || !p.futures().stream().allMatch(Future::isDone)) {
+        if (p == null || !p.calc().isDone()) {
             return;
         }
         calculating = null;
-        var planned = new ArrayList<PlannedEntry>();
+        List<PlannedEntry> planned;
         try {
-            for (int i = 0; i < p.futures().size(); i++) {
-                ItemStackTemplate entry = p.bundle().entries().get(i);
-                planned.add(new PlannedEntry(i, entry, (long) entry.count() * p.sets(), p.futures().get(i).get()));
-            }
+            planned = p.calc().collect();
         } catch (InterruptedException | ExecutionException | java.util.concurrent.CancellationException e) {
             p.callback().accept(new Outcome.Failed("Crafting calculation failed: " + e.getMessage()));
             return;
@@ -358,7 +475,7 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
     /** Drop the pending request without crafting anything. */
     public void cancelPending() {
         if (calculating != null) {
-            calculating.futures().forEach(f -> f.cancel(true));
+            calculating.calc().cancel();
         }
         calculating = null;
         awaitingDecision = List.of();
@@ -387,7 +504,20 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
                 failures.add(name + ": missing ingredients");
                 continue;
             }
-            var piece = new Piece(UUID.randomUUID(), e.entry(), e.amount(), PieceState.QUEUED);
+            if (e.fromStock() > 0) {
+                long got = takeFromStorage(grid, AEItemKey.of(e.entry()), e.fromStock());
+                if (got < e.fromStock()) {
+                    failures.add(name + ": only " + got + " of " + e.fromStock() + " left in storage");
+                }
+                if (e.fullyInStock()) {
+                    var done = new Piece(UUID.randomUUID(), e.entry(), got, PieceState.DONE);
+                    done.note = "taken from storage";
+                    pieces.add(done);
+                    started++;
+                    continue;
+                }
+            }
+            var piece = new Piece(UUID.randomUUID(), e.entry(), e.amount() - e.fromStock(), PieceState.QUEUED);
             ICraftingSubmitResult result = grid.getCraftingService().submitJob(e.plan(), this, null, false, source());
             if (result.successful() && result.link() != null) {
                 piece.state = PieceState.RUNNING;
@@ -404,6 +534,20 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
         }
         piecesChanged();
         return new Outcome.Started(started, queued, failures);
+    }
+
+    /**
+     * Pull an in-stock piece out of ME storage into the output buffer. Whatever doesn't fit simply stays in
+     * the network. Returns how much was really available.
+     */
+    private long takeFromStorage(IGrid grid, AEItemKey key, long amount) {
+        var energy = grid.getEnergyService();
+        var inv = grid.getStorageService().getInventory();
+        long available = StorageHelper.poweredExtraction(energy, inv, key, amount, source(), Actionable.SIMULATE);
+        long fits = insertOutput(key, available, true);
+        long taken = StorageHelper.poweredExtraction(energy, inv, key, fits, source(), Actionable.MODULATE);
+        insertOutput(key, taken, false);
+        return available;
     }
 
     /** Once a second: if a CPU is free, re-plan and start the oldest queued piece. */
@@ -473,15 +617,16 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
         return set.build();
     }
 
-    /** Finished items are sent straight into ME storage. */
+    /** Finished items go into the output buffer; overflow (and non-items) go into ME storage. */
     @Override
     public long insertCraftedItems(ICraftingLink link, AEKey what, long amount, Actionable mode) {
+        long buffered = what instanceof AEItemKey item ? insertOutput(item, amount, mode == Actionable.SIMULATE) : 0;
         IGrid grid = mainNode.getGrid();
-        if (grid == null) {
-            return 0;
+        if (grid == null || buffered == amount) {
+            return buffered;
         }
-        return StorageHelper.poweredInsert(grid.getEnergyService(), grid.getStorageService().getInventory(),
-                what, amount, source(), mode);
+        return buffered + StorageHelper.poweredInsert(grid.getEnergyService(), grid.getStorageService().getInventory(),
+                what, amount - buffered, source(), mode);
     }
 
     @Override
@@ -502,6 +647,7 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
         ContainerHelper.saveAllItems(output, patterns.getItems());
+        ContainerHelper.saveAllItems(output.child("output"), this.output.getItems());
         mainNode.serialize(output.child("gridnode"));
         var list = output.childrenList("pieces");
         for (Piece pc : pieces) {
@@ -522,6 +668,8 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
     protected void loadAdditional(ValueInput input) {
         super.loadAdditional(input);
         ContainerHelper.loadAllItems(input, patterns.getItems());
+        output.clearContent();
+        input.child("output").ifPresent(o -> ContainerHelper.loadAllItems(o, output.getItems()));
         input.child("gridnode").ifPresent(mainNode::deserialize);
         pieces.clear();
         for (ValueInput c : input.childrenListOrEmpty("pieces")) {

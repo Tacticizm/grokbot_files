@@ -96,7 +96,7 @@ public class MissingPiecesScreen extends Screen {
         answered = true;
         List<Integer> chosen = new ArrayList<>();
         chosen.addAll(ticked);
-        ClientPacketDistributor.sendToServer(new ModNetwork.MissingChoice(data.pos(), craft && !chosen.isEmpty(), chosen));
+        ClientPacketDistributor.sendToServer(new ModNetwork.MissingChoice(data.pos(), data.wireless(), craft && !chosen.isEmpty(), chosen));
         onClose();
     }
 
@@ -130,9 +130,16 @@ public class MissingPiecesScreen extends Screen {
             g.item(e.item().create(), left + 30, y);
             String label = e.amount() + "x " + e.item().create().getHoverName().getString();
             g.text(font, font.plainSubstrByWidth(label, W - 60), left + 50, y, Panels.TEXT, false);
-            String status = e.missing().isEmpty()
-                    ? Component.translatable("screen.appliedcraftingbundles.missing.ok").getString()
-                    : Component.translatable("screen.appliedcraftingbundles.missing.short", String.join(", ", e.missing())).getString();
+            String status;
+            if (!e.missing().isEmpty()) {
+                status = Component.translatable("screen.appliedcraftingbundles.missing.short", String.join(", ", e.missing())).getString();
+            } else if (e.inStorage() >= e.amount()) {
+                status = Component.translatable("screen.appliedcraftingbundles.missing.in_storage").getString();
+            } else if (e.inStorage() > 0) {
+                status = Component.translatable("screen.appliedcraftingbundles.missing.partial", e.inStorage()).getString();
+            } else {
+                status = Component.translatable("screen.appliedcraftingbundles.missing.ok").getString();
+            }
             g.text(font, font.plainSubstrByWidth(status, W - 60), left + 50, y + 10,
                     e.missing().isEmpty() ? 0xFF207020 : 0xFFA02020, false);
         }

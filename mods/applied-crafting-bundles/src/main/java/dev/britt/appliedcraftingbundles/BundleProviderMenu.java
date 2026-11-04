@@ -22,19 +22,22 @@ public class BundleProviderMenu extends AbstractContainerMenu {
     private final Player player;
     private int sentVersion = -1;
 
+    public static final int TAB_PATTERNS = 0, TAB_QUEUE = 1, TAB_OUTPUT = 2;
+
     /** Client view state. */
-    public boolean queueView;
+    public int tab = TAB_PATTERNS;
     public List<ModNetwork.PieceView> clientPieces = List.of();
 
     public BundleProviderMenu(int id, Inventory inv, BundleProviderBlockEntity be) {
-        this(id, inv, be.getBlockPos(), be.getPatternContainer(), be);
+        this(id, inv, be.getBlockPos(), be.getPatternContainer(), be.getOutputContainer(), be);
     }
 
     public static BundleProviderMenu fromNetwork(int id, Inventory inv, RegistryFriendlyByteBuf buf) {
-        return new BundleProviderMenu(id, inv, buf.readBlockPos(), BundleProviderBlockEntity.newPatternContainer(() -> {}), null);
+        return new BundleProviderMenu(id, inv, buf.readBlockPos(), BundleProviderBlockEntity.newPatternContainer(() -> {}),
+                BundleProviderBlockEntity.newOutputContainer(() -> {}), null);
     }
 
-    private BundleProviderMenu(int id, Inventory inv, BlockPos pos, Container patterns, @Nullable BundleProviderBlockEntity be) {
+    private BundleProviderMenu(int id, Inventory inv, BlockPos pos, Container patterns, Container output, @Nullable BundleProviderBlockEntity be) {
         super(ModMenus.BUNDLE_PROVIDER.get(), id);
         this.pos = pos;
         this.be = be;
@@ -48,7 +51,20 @@ public class BundleProviderMenu extends AbstractContainerMenu {
 
                 @Override
                 public boolean isActive() {
-                    return !queueView;
+                    return tab == TAB_PATTERNS;
+                }
+            });
+        }
+        for (int i = 0; i < BundleProviderBlockEntity.OUTPUT_SLOTS; i++) {
+            addSlot(new Slot(output, i, SLOT_X + (i % 9) * 18, SLOT_Y + (i / 9) * 18) {
+                @Override
+                public boolean mayPlace(ItemStack stack) {
+                    return false;
+                }
+
+                @Override
+                public boolean isActive() {
+                    return tab == TAB_OUTPUT;
                 }
             });
         }
@@ -72,9 +88,9 @@ public class BundleProviderMenu extends AbstractContainerMenu {
         }
         ItemStack stack = slot.getItem();
         ItemStack copy = stack.copy();
-        int n = BundleProviderBlockEntity.SLOTS;
-        if (index < n) {
-            if (!moveItemStackTo(stack, n, slots.size(), true)) {
+        int n = BundleProviderBlockEntity.SLOTS, inv = n + BundleProviderBlockEntity.OUTPUT_SLOTS;
+        if (index < inv) {
+            if (!moveItemStackTo(stack, inv, slots.size(), true)) {
                 return ItemStack.EMPTY;
             }
         } else if (!stack.is(ModItems.BUNDLE_PATTERN.get()) || !moveItemStackTo(stack, 0, n, false)) {

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "w": "ae2:wireless_receiver",
+    "e": "appliedcraftingbundles:bundle_encoder",
+    "p": "appliedcraftingbundles:bundle_provider",
+    "c": "ae2:dense_energy_cell"
+  },
+  "pattern": [
+    "ewp",
+    " c "
+  ],
+  "result": {
+    "id": "appliedcraftingbundles:wireless_terminal"
+  }
+}

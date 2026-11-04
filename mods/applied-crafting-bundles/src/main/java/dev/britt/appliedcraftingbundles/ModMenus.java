@@ -14,6 +14,9 @@ public final class ModMenus {
     public static final DeferredHolder<MenuType<?>, MenuType<BundleEncoderMenu>> BUNDLE_ENCODER =
             MENUS.register("bundle_encoder", () -> IMenuTypeExtension.create(BundleEncoderMenu::fromNetwork));
 
+    public static final DeferredHolder<MenuType<?>, MenuType<WirelessProviderMenu>> WIRELESS_PROVIDER =
+            MENUS.register("wireless_provider", () -> IMenuTypeExtension.create(WirelessProviderMenu::fromNetwork));
+
     private ModMenus() {
     }
 }
