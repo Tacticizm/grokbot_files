@@ -1,65 +1,92 @@
 package dev.britt.appliedcraftingbundles.client;
 
+import appeng.client.gui.widgets.AE2Button;
+import appeng.client.gui.widgets.TabButton;
 import dev.britt.appliedcraftingbundles.BundleContents;
-import dev.britt.appliedcraftingbundles.BundleProviderMenu;
+import dev.britt.appliedcraftingbundles.WirelessProviderMenu;
+import dev.britt.appliedcraftingbundles.GuiLayout;
+import dev.britt.appliedcraftingbundles.ModBlocks;
 import dev.britt.appliedcraftingbundles.ModComponents;
+import dev.britt.appliedcraftingbundles.ModItems;
 import dev.britt.appliedcraftingbundles.ModNetwork;
 import dev.britt.appliedcraftingbundles.WirelessInventory;
-import dev.britt.appliedcraftingbundles.WirelessProviderMenu;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.lwjgl.glfw.GLFW;
 
-/** Wireless terminal, Provider tab: the item's 9 patterns with request buttons, plus an Encoder tab. */
+/**
+ * Wireless terminal, Provider tab. Same window size and tab placement as the Encoder tab.
+ * Crafted items go to the player (then the network); this screen has no output buffer.
+ */
 public class WirelessProviderScreen extends AbstractContainerScreen<WirelessProviderMenu> {
-    private static final int LIST_X = 70, ROW_H = 11;
-
-    private final List<Button> requestButtons = new ArrayList<>();
-    private EditBox setsBox;
+    private final List<AE2Button> requestButtons = new ArrayList<>();
+    private SetsControl sets;
 
     public WirelessProviderScreen(WirelessProviderMenu menu, Inventory inv, Component title) {
-        super(menu, inv, title, 176, 214);
-        this.inventoryLabelY = BundleProviderMenu.INV_Y - 11;
+        super(menu, inv, title, GuiLayout.TERM_W, GuiLayout.TERM_H);
+        this.titleLabelX = 8;
+        this.titleLabelY = 6;
+        this.inventoryLabelX = GuiLayout.TERM_INV_X;
+        this.inventoryLabelY = GuiLayout.TERM_INV_Y - 11;
     }
 
     @Override
     protected void init() {
         super.init();
+        TabHandoff.applyOrigin(false, new TabHandoff.ScreenOrigin() {
+            @Override
+            public int width() {
+                return WirelessProviderScreen.this.width;
+            }
+
+            @Override
+            public int height() {
+                return WirelessProviderScreen.this.height;
+            }
+
+            @Override
+            public void move(int left, int top) {
+                leftPos = left;
+                topPos = top;
+            }
+        });
         requestButtons.clear();
-        addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.tab.provider"), b -> {})
-                .bounds(leftPos + 80, topPos + 3, 44, 12).build()).active = false;
-        addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.tab.encoder"),
-                b -> ClientPacketDistributor.sendToServer(new ModNetwork.WirelessTab(menu.hand, true)))
-                .bounds(leftPos + 126, topPos + 3, 44, 12).build());
-        setsBox = addRenderableWidget(new EditBox(font, leftPos + 30, topPos + 76, 30, 12,
-                Component.translatable("screen.appliedcraftingbundles.sets")));
-        setsBox.setValue("1");
-        setsBox.setMaxLength(2);
-        setsBox.setFilter(s -> s.chars().allMatch(Character::isDigit));
+        var provider = new TabButton(new ItemStack(ModBlocks.BUNDLE_PROVIDER_ITEM.get()),
+                Component.translatable("screen.appliedcraftingbundles.tab.provider"), b -> {});
+        provider.setStyle(TabButton.Style.HORIZONTAL);
+        provider.setSelected(true);
+        provider.setX(leftPos + GuiLayout.TAB_X);
+        provider.setY(topPos + GuiLayout.TAB_Y);
+        addRenderableWidget(provider);
+        var encoder = new TabButton(new ItemStack(ModItems.BUNDLE_ENCODER.get()),
+                Component.translatable("screen.appliedcraftingbundles.tab.encoder"),
+                b -> {
+                    TabHandoff.arm(true, leftPos, topPos, width, height);
+                    ClientPacketDistributor.sendToServer(new ModNetwork.WirelessTab(menu.hand, true));
+                });
+        encoder.setStyle(TabButton.Style.HORIZONTAL);
+        encoder.setX(leftPos + GuiLayout.TAB_X + GuiLayout.TAB + 2);
+        encoder.setY(topPos + GuiLayout.TAB_Y);
+        addRenderableWidget(encoder);
+        sets = new SetsControl(this::addRenderableWidget, font, leftPos + 34, topPos + GuiLayout.TERM_SETS_Y);
         for (int i = 0; i < WirelessInventory.PATTERNS; i++) {
             int slot = i;
-            requestButtons.add(addRenderableWidget(Button.builder(Component.literal(">"), b -> request(slot))
-                    .bounds(leftPos + 154, topPos + 18 + i * ROW_H, 14, 10).build()));
+            requestButtons.add(addRenderableWidget(new AE2Button(
+                    leftPos + GuiLayout.TERM_REQ_X, topPos + GuiLayout.TERM_LIST_Y + i * GuiLayout.TERM_ROW,
+                    14, 10, Component.literal(">"), b -> request(slot))));
         }
         updateWidgets();
     }
 
     private void request(int slot) {
-        int sets;
-        try {
-            sets = Math.max(1, Integer.parseInt(setsBox.getValue()));
-        } catch (NumberFormatException e) {
-            sets = 1;
-        }
-        ClientPacketDistributor.sendToServer(new ModNetwork.WirelessRequest(menu.hand, slot, sets));
+        ClientPacketDistributor.sendToServer(new ModNetwork.WirelessRequest(menu.hand, slot, sets.value()));
     }
 
     private BundleContents bundleAt(int slot) {
@@ -76,13 +103,15 @@ public class WirelessProviderScreen extends AbstractContainerScreen<WirelessProv
     @Override
     protected void containerTick() {
         super.containerTick();
+        TabHandoff.pinCursor();
+        sets.normalizeIfIdle();
         updateWidgets();
     }
 
     @Override
     public boolean keyPressed(KeyEvent event) {
-        if (setsBox.isFocused() && event.key() != GLFW.GLFW_KEY_ESCAPE) {
-            return setsBox.keyPressed(event) || true;
+        if (sets.isFocused() && event.key() != GLFW.GLFW_KEY_ESCAPE) {
+            return sets.keyPressed(event);
         }
         return super.keyPressed(event);
     }
@@ -94,18 +123,19 @@ public class WirelessProviderScreen extends AbstractContainerScreen<WirelessProv
         for (var slot : menu.slots) {
             Panels.slot(g, leftPos + slot.x, topPos + slot.y);
         }
-        g.fill(leftPos + LIST_X - 2, topPos + 16, leftPos + 170, topPos + 18 + 9 * ROW_H, 0xFF8B8B8B);
     }
 
     @Override
     protected void extractLabels(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         super.extractLabels(g, mouseX, mouseY);
-        g.text(font, Component.translatable("screen.appliedcraftingbundles.sets"), 8, 78, Panels.TEXT, false);
+        g.text(font, Component.translatable("screen.appliedcraftingbundles.sets"), 8, GuiLayout.TERM_SETS_Y + 4,
+                Panels.TEXT, false);
         for (int i = 0; i < WirelessInventory.PATTERNS; i++) {
             var b = bundleAt(i);
             if (b != null) {
                 String name = b.name().isBlank() ? "#" + (i + 1) : b.name();
-                g.text(font, font.plainSubstrByWidth(name, 80), LIST_X, 19 + i * ROW_H, 0xFFFFFFFF, false);
+                g.text(font, font.plainSubstrByWidth(name, GuiLayout.TERM_REQ_X - GuiLayout.TERM_LIST_X - 2),
+                        GuiLayout.TERM_LIST_X, GuiLayout.TERM_LIST_Y + i * GuiLayout.TERM_ROW + 1, Panels.TEXT, false);
             }
         }
     }

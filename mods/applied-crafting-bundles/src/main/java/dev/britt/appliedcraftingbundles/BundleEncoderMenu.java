@@ -16,7 +16,8 @@ import org.jetbrains.annotations.Nullable;
  * The 9 entries are ghost cells drawn by the screen. Hosted by the Bundle Encoder part or the wireless terminal.
  */
 public class BundleEncoderMenu extends AbstractContainerMenu {
-    public static final int INV_Y = 120, IN_X = 124, OUT_X = 152, IO_Y = 66;
+    public static final int INV_Y = GuiLayout.TERM_INV_Y, IN_X = GuiLayout.TERM_IN_X, OUT_X = GuiLayout.TERM_OUT_X,
+            IO_Y = GuiLayout.TERM_IO_Y;
 
     public final Container container;
     public final int inSlot, outSlot;
@@ -35,7 +36,7 @@ public class BundleEncoderMenu extends AbstractContainerMenu {
         this.valid = valid;
         addSlot(new PatternSlot(container, inSlot, IN_X, IO_Y));
         addSlot(new PatternSlot(container, outSlot, OUT_X, IO_Y));
-        addStandardInventorySlots(inv, 8, INV_Y);
+        addStandardInventorySlots(inv, GuiLayout.TERM_INV_X, INV_Y);
     }
 
     public static BundleEncoderMenu forPart(int id, Inventory inv, BundleEncoderPart part) {

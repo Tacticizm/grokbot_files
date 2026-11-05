@@ -1,35 +1,38 @@
 package dev.britt.appliedcraftingbundles.client;
 
+import appeng.client.gui.widgets.AE2Button;
+import appeng.client.gui.widgets.TabButton;
+import appeng.util.Icon;
 import dev.britt.appliedcraftingbundles.BundleContents;
 import dev.britt.appliedcraftingbundles.BundleProviderBlockEntity;
 import dev.britt.appliedcraftingbundles.BundleProviderMenu;
+import dev.britt.appliedcraftingbundles.GuiLayout;
 import dev.britt.appliedcraftingbundles.ModComponents;
+import dev.britt.appliedcraftingbundles.ModItems;
 import dev.britt.appliedcraftingbundles.ModNetwork;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.lwjgl.glfw.GLFW;
 
-/** Patterns tab: 9 slots + bundle list with request buttons. Queue tab: queued/running/done pieces. */
+/** Block provider: patterns (or the queue) and the 27-slot output buffer on one AE2-style window. */
 public class BundleProviderScreen extends AbstractContainerScreen<BundleProviderMenu> {
-    private static final int LIST_X = 70, ROW_H = 11, QUEUE_ROWS = 5, QUEUE_ROW_H = 18;
-
-    private final List<Button> requestButtons = new ArrayList<>();
-    private final List<Button> cancelButtons = new ArrayList<>();
-    private EditBox setsBox;
-    private Button patternsTab, queueTab, outputTab, sendButton;
-    private int scroll;
+    private final List<AE2Button> requestButtons = new ArrayList<>();
+    private final List<AE2Button> cancelButtons = new ArrayList<>();
+    private SetsControl sets;
+    private TabButton patternsTab, queueTab;
 
     public BundleProviderScreen(BundleProviderMenu menu, Inventory inv, Component title) {
-        super(menu, inv, title, 176, 214);
-        this.inventoryLabelY = BundleProviderMenu.INV_Y - 11;
+        super(menu, inv, title, GuiLayout.PROV_W, GuiLayout.PROV_H);
+        this.titleLabelX = 8;
+        this.titleLabelY = 6;
+        this.inventoryLabelX = GuiLayout.PROV_INV_X;
+        this.inventoryLabelY = GuiLayout.PROV_INV_Y - 11;
     }
 
     @Override
@@ -37,41 +40,49 @@ public class BundleProviderScreen extends AbstractContainerScreen<BundleProvider
         super.init();
         requestButtons.clear();
         cancelButtons.clear();
-        patternsTab = addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.tab.patterns"),
-                b -> menu.tab = BundleProviderMenu.TAB_PATTERNS).bounds(leftPos + 56, topPos + 3, 44, 12).build());
-        outputTab = addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.tab.output"),
-                b -> menu.tab = BundleProviderMenu.TAB_OUTPUT).bounds(leftPos + 102, topPos + 3, 36, 12).build());
-        queueTab = addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.tab.queue"),
-                b -> menu.tab = BundleProviderMenu.TAB_QUEUE).bounds(leftPos + 140, topPos + 3, 30, 12).build());
-        sendButton = addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.send_to_network"),
-                b -> ClientPacketDistributor.sendToServer(new ModNetwork.SendToNetwork(menu.pos)))
-                .bounds(leftPos + 8, topPos + 76 + 18, 100, 14).build());
-        setsBox = addRenderableWidget(new EditBox(font, leftPos + 30, topPos + 76, 30, 12,
-                Component.translatable("screen.appliedcraftingbundles.sets")));
-        setsBox.setValue("1");
-        setsBox.setMaxLength(2);
-        setsBox.setFilter(s -> s.chars().allMatch(Character::isDigit));
+        patternsTab = tab(new ItemStack(ModItems.BUNDLE_PATTERN.get()), "screen.appliedcraftingbundles.tab.patterns",
+                GuiLayout.TAB_X, () -> menu.tab = BundleProviderMenu.TAB_PATTERNS);
+        queueTab = tab(Icon.SCHEDULING_ROUND_ROBIN, "screen.appliedcraftingbundles.tab.queue",
+                GuiLayout.TAB_X + GuiLayout.TAB + 2, () -> menu.tab = BundleProviderMenu.TAB_QUEUE);
+        addRenderableWidget(new AE2Button(leftPos + GuiLayout.PROV_SEND_X, topPos + GuiLayout.PROV_SEND_Y,
+                GuiLayout.PROV_SEND_W, GuiLayout.PROV_SEND_H,
+                Component.translatable("screen.appliedcraftingbundles.send_to_network"),
+                b -> ClientPacketDistributor.sendToServer(new ModNetwork.SendToNetwork(menu.pos))));
+        sets = new SetsControl(this::addRenderableWidget, font, leftPos + 34, topPos + GuiLayout.PROV_SETS_Y);
         for (int i = 0; i < BundleProviderBlockEntity.SLOTS; i++) {
             int slot = i;
-            requestButtons.add(addRenderableWidget(Button.builder(Component.literal(">"), b -> request(slot))
-                    .bounds(leftPos + 154, topPos + 18 + i * ROW_H, 14, 10).build()));
+            var button = new AE2Button(leftPos + GuiLayout.PROV_REQ_X, topPos + GuiLayout.PROV_LIST_Y + i * GuiLayout.PROV_ROW,
+                    14, 10, Component.literal(">"), b -> request(slot));
+            requestButtons.add(addRenderableWidget(button));
         }
-        for (int i = 0; i < QUEUE_ROWS; i++) {
+        for (int i = 0; i < GuiLayout.PROV_QUEUE_ROWS; i++) {
             int row = i;
-            cancelButtons.add(addRenderableWidget(Button.builder(Component.literal("x"), b -> cancelRow(row))
-                    .bounds(leftPos + 154, topPos + 20 + i * QUEUE_ROW_H, 14, 12).build()));
+            var button = new AE2Button(leftPos + GuiLayout.PROV_CANCEL_X,
+                    topPos + GuiLayout.PROV_QUEUE_Y + i * GuiLayout.PROV_QUEUE_ROW, 14, 12,
+                    Component.literal("x"), b -> cancelRow(row));
+            cancelButtons.add(addRenderableWidget(button));
         }
         updateWidgets();
     }
 
+    private TabButton tab(ItemStack icon, String key, int x, Runnable select) {
+        var button = new TabButton(icon, Component.translatable(key), b -> select.run());
+        button.setStyle(TabButton.Style.HORIZONTAL);
+        button.setX(leftPos + x);
+        button.setY(topPos + GuiLayout.TAB_Y);
+        return addRenderableWidget(button);
+    }
+
+    private TabButton tab(Icon icon, String key, int x, Runnable select) {
+        var button = new TabButton(icon, Component.translatable(key), b -> select.run());
+        button.setStyle(TabButton.Style.HORIZONTAL);
+        button.setX(leftPos + x);
+        button.setY(topPos + GuiLayout.TAB_Y);
+        return addRenderableWidget(button);
+    }
+
     private void request(int slot) {
-        int sets;
-        try {
-            sets = Math.max(1, Integer.parseInt(setsBox.getValue()));
-        } catch (NumberFormatException e) {
-            sets = 1;
-        }
-        ClientPacketDistributor.sendToServer(new ModNetwork.RequestBundle(menu.pos, slot, sets));
+        ClientPacketDistributor.sendToServer(new ModNetwork.RequestBundle(menu.pos, slot, sets.value()));
     }
 
     private void cancelRow(int row) {
@@ -81,25 +92,25 @@ public class BundleProviderScreen extends AbstractContainerScreen<BundleProvider
         }
     }
 
+    private int scroll;
+
     private BundleContents bundleAt(int slot) {
         var c = menu.slots.get(slot).getItem().get(ModComponents.BUNDLE_CONTENTS.get());
         return c == null || c.isEmpty() ? null : c;
     }
 
     private void updateWidgets() {
-        boolean q = menu.tab == BundleProviderMenu.TAB_QUEUE, pat = menu.tab == BundleProviderMenu.TAB_PATTERNS;
-        patternsTab.active = !pat;
-        queueTab.active = !q;
-        outputTab.active = menu.tab != BundleProviderMenu.TAB_OUTPUT;
-        sendButton.visible = menu.tab == BundleProviderMenu.TAB_OUTPUT;
-        setsBox.visible = pat;
+        boolean patterns = menu.tab == BundleProviderMenu.TAB_PATTERNS;
+        patternsTab.setSelected(patterns);
+        queueTab.setSelected(!patterns);
+        sets.setVisible(patterns);
         for (int i = 0; i < requestButtons.size(); i++) {
-            requestButtons.get(i).visible = pat && bundleAt(i) != null;
+            requestButtons.get(i).visible = patterns && bundleAt(i) != null;
         }
-        scroll = Math.max(0, Math.min(scroll, menu.clientPieces.size() - QUEUE_ROWS));
+        scroll = Math.max(0, Math.min(scroll, menu.clientPieces.size() - GuiLayout.PROV_QUEUE_ROWS));
         for (int i = 0; i < cancelButtons.size(); i++) {
             int idx = scroll + i;
-            cancelButtons.get(i).visible = q && idx < menu.clientPieces.size()
+            cancelButtons.get(i).visible = !patterns && idx < menu.clientPieces.size()
                     && menu.clientPieces.get(idx).state().equals("QUEUED");
         }
     }
@@ -107,6 +118,7 @@ public class BundleProviderScreen extends AbstractContainerScreen<BundleProvider
     @Override
     protected void containerTick() {
         super.containerTick();
+        sets.normalizeIfIdle();
         updateWidgets();
     }
 
@@ -121,9 +133,9 @@ public class BundleProviderScreen extends AbstractContainerScreen<BundleProvider
     }
 
     @Override
-    public boolean keyPressed(KeyEvent event) {
-        if (setsBox.isFocused() && event.key() != GLFW.GLFW_KEY_ESCAPE) {
-            return setsBox.keyPressed(event) || true;
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        if (sets.isFocused() && event.key() != GLFW.GLFW_KEY_ESCAPE) {
+            return sets.keyPressed(event);
         }
         return super.keyPressed(event);
     }
@@ -137,47 +149,45 @@ public class BundleProviderScreen extends AbstractContainerScreen<BundleProvider
                 Panels.slot(g, leftPos + slot.x, topPos + slot.y);
             }
         }
-        if (menu.tab == BundleProviderMenu.TAB_OUTPUT) {
-            return;
-        }
-        if (menu.tab == BundleProviderMenu.TAB_QUEUE) {
-            g.fill(leftPos + 6, topPos + 16, leftPos + 170, topPos + 18 + QUEUE_ROWS * QUEUE_ROW_H, 0xFF8B8B8B);
-        } else {
-            g.fill(leftPos + LIST_X - 2, topPos + 16, leftPos + 170, topPos + 18 + 9 * ROW_H, 0xFF8B8B8B);
-        }
     }
 
     @Override
     protected void extractLabels(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         super.extractLabels(g, mouseX, mouseY);
-        if (menu.tab == BundleProviderMenu.TAB_OUTPUT) {
-            return;
-        }
-        if (menu.tab == BundleProviderMenu.TAB_PATTERNS) {
-            g.text(font, Component.translatable("screen.appliedcraftingbundles.sets"), 8, 78, Panels.TEXT, false);
+        boolean patterns = menu.tab == BundleProviderMenu.TAB_PATTERNS;
+        g.text(font, Component.translatable(patterns
+                ? "screen.appliedcraftingbundles.tab.patterns"
+                : "screen.appliedcraftingbundles.tab.queue"), 8, GuiLayout.PROV_LABEL_Y, Panels.TEXT, false);
+        g.text(font, Component.translatable("screen.appliedcraftingbundles.output"),
+                GuiLayout.PROV_OUT_X, GuiLayout.PROV_LABEL_Y, Panels.TEXT, false);
+        if (patterns) {
+            g.text(font, Component.translatable("screen.appliedcraftingbundles.sets"), 8, GuiLayout.PROV_SETS_Y + 4,
+                    Panels.TEXT, false);
             for (int i = 0; i < BundleProviderBlockEntity.SLOTS; i++) {
                 var b = bundleAt(i);
                 if (b != null) {
                     String name = b.name().isBlank() ? "#" + (i + 1) : b.name();
-                    g.text(font, font.plainSubstrByWidth(name, 80), LIST_X, 19 + i * ROW_H, 0xFFFFFFFF, false);
+                    g.text(font, font.plainSubstrByWidth(name, GuiLayout.PROV_REQ_X - GuiLayout.PROV_LIST_X - 2),
+                            GuiLayout.PROV_LIST_X, GuiLayout.PROV_LIST_Y + i * GuiLayout.PROV_ROW + 1, Panels.TEXT, false);
                 }
             }
             return;
         }
         var pieces = menu.clientPieces;
         if (pieces.isEmpty()) {
-            g.text(font, Component.translatable("screen.appliedcraftingbundles.queue.empty"), 10, 22, 0xFFFFFFFF, false);
+            g.text(font, Component.translatable("screen.appliedcraftingbundles.queue.empty"), 8,
+                    GuiLayout.PROV_QUEUE_Y + 4, Panels.MUTED, false);
         }
-        for (int row = 0; row < QUEUE_ROWS && scroll + row < pieces.size(); row++) {
+        for (int row = 0; row < GuiLayout.PROV_QUEUE_ROWS && scroll + row < pieces.size(); row++) {
             var pc = pieces.get(scroll + row);
-            int y = 18 + row * QUEUE_ROW_H;
+            int y = GuiLayout.PROV_QUEUE_Y + row * GuiLayout.PROV_QUEUE_ROW;
             g.item(pc.item().create(), 8, y);
             String label = pc.amount() + "x " + pc.item().create().getHoverName().getString();
-            g.text(font, font.plainSubstrByWidth(label, 80), 27, y + 1, 0xFFFFFFFF, false);
+            g.text(font, font.plainSubstrByWidth(label, 90), 28, y + 1, Panels.TEXT, false);
             g.text(font, Component.translatable("screen.appliedcraftingbundles.state." + pc.state().toLowerCase()),
-                    27, y + 9, stateColor(pc.state()), false);
-            if (!pc.note().isEmpty() && mouseX - leftPos >= 6 && mouseX - leftPos < 150
-                    && mouseY - topPos >= y && mouseY - topPos < y + QUEUE_ROW_H) {
+                    28, y + 9, stateColor(pc.state()), false);
+            if (!pc.note().isEmpty() && mouseX - leftPos >= 6 && mouseX - leftPos < GuiLayout.PROV_OUT_X - 8
+                    && mouseY - topPos >= y && mouseY - topPos < y + GuiLayout.PROV_QUEUE_ROW) {
                 g.setTooltipForNextFrame(Component.literal(pc.note()), mouseX, mouseY);
             }
         }
@@ -185,11 +195,11 @@ public class BundleProviderScreen extends AbstractContainerScreen<BundleProvider
 
     private static int stateColor(String state) {
         return switch (state) {
-            case "QUEUED" -> 0xFFFFE066;
-            case "PLANNING" -> 0xFF66E0FF;
-            case "RUNNING" -> 0xFF66FF66;
-            case "CANCELLED" -> 0xFFFF6666;
-            default -> 0xFFDDDDDD;
+            case "QUEUED" -> 0xFF8A6A00;
+            case "PLANNING" -> 0xFF1F6F8A;
+            case "RUNNING" -> 0xFF1F7A32;
+            case "CANCELLED" -> 0xFFCE2401;
+            default -> Panels.MUTED;
         };
     }
 }

@@ -1,20 +1,24 @@
 package dev.britt.appliedcraftingbundles.client;
 
+import appeng.client.gui.style.BackgroundGenerator;
+import appeng.client.gui.style.Blitter;
+import appeng.util.Icon;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
-/** Placeholder, code-drawn GUI pieces until Pack Forge supplies real textures. */
+/** AE2's own GUI chrome (background tile and slot sprite). No new textures. */
 final class Panels {
-    static final int TEXT = 0xFF404040;
+    /** AE2 palette DEFAULT_TEXT_COLOR. */
+    static final int TEXT = 0xFF413F54;
+    /** AE2 palette MUTED_TEXT_COLOR. */
+    static final int MUTED = 0xFF878FA5;
 
     static void panel(GuiGraphicsExtractor g, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, 0xFF555555);
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, 0xFFC6C6C6);
+        BackgroundGenerator.draw(w, h, g, x, y);
     }
 
+    /** {@code x,y} is the item's top-left, same as a menu slot. */
     static void slot(GuiGraphicsExtractor g, int x, int y) {
-        g.fill(x - 1, y - 1, x + 17, y + 17, 0xFF373737);
-        g.fill(x, y, x + 17, y + 17, 0xFFFFFFFF);
-        g.fill(x, y, x + 16, y + 16, 0xFF8B8B8B);
+        Blitter.icon(Icon.SLOT_BACKGROUND).dest(x - 1, y - 1).blit(g);
     }
 
     private Panels() {

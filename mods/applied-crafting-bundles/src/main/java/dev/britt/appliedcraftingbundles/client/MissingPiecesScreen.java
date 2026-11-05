@@ -8,7 +8,7 @@ import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
+import appeng.client.gui.widgets.AE2Button;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -73,10 +73,11 @@ public class MissingPiecesScreen extends Screen {
             }
         }
         int by = top + height0 - 24;
-        addRenderableWidget(Button.builder(Component.translatable("screen.appliedcraftingbundles.missing.craft"), b -> answer(true))
-                .bounds(left + 8, by, 110, 18).build()).active = !ticked.isEmpty();
-        addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), b -> answer(false))
-                .bounds(left + W - 118, by, 110, 18).build());
+        var craft = addRenderableWidget(new AE2Button(left + 8, by, 110, 18,
+                Component.translatable("screen.appliedcraftingbundles.missing.craft"), b -> answer(true)));
+        craft.active = !ticked.isEmpty();
+        addRenderableWidget(new AE2Button(left + W - 118, by, 110, 18,
+                Component.translatable("gui.cancel"), b -> answer(false)));
     }
 
     /** Checkbox has no setter, so state lives in {@link #ticked} and widgets are rebuilt on the next tick. */
@@ -127,9 +128,9 @@ public class MissingPiecesScreen extends Screen {
         for (int i = 0; i < data.entries().size(); i++) {
             var e = data.entries().get(i);
             int y = top + ROWS_Y + i * ROW_H;
-            g.item(e.item().create(), left + 30, y);
+            g.item(e.item().create(), left + 36, y);
             String label = e.amount() + "x " + e.item().create().getHoverName().getString();
-            g.text(font, font.plainSubstrByWidth(label, W - 60), left + 50, y, Panels.TEXT, false);
+            g.text(font, font.plainSubstrByWidth(label, W - 66), left + 56, y, Panels.TEXT, false);
             String status;
             if (!e.missing().isEmpty()) {
                 status = Component.translatable("screen.appliedcraftingbundles.missing.short", String.join(", ", e.missing())).getString();
@@ -140,7 +141,7 @@ public class MissingPiecesScreen extends Screen {
             } else {
                 status = Component.translatable("screen.appliedcraftingbundles.missing.ok").getString();
             }
-            g.text(font, font.plainSubstrByWidth(status, W - 60), left + 50, y + 10,
+            g.text(font, font.plainSubstrByWidth(status, W - 66), left + 56, y + 10,
                     e.missing().isEmpty() ? 0xFF207020 : 0xFFA02020, false);
         }
     }

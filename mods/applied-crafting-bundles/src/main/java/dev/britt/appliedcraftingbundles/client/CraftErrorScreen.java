@@ -2,7 +2,7 @@ package dev.britt.appliedcraftingbundles.client;
 
 import dev.britt.appliedcraftingbundles.ModNetwork;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
+import appeng.client.gui.widgets.AE2Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
@@ -33,10 +33,10 @@ public class CraftErrorScreen extends Screen {
         left = (width - W) / 2;
         top = (height - h) / 2;
         int by = top + h - 24;
-        addRenderableWidget(Button.builder(Component.translatable("gui.ae2.CraftErrorRetry"), b -> answer(true))
-                .bounds(left + 8, by, 110, 18).build());
-        addRenderableWidget(Button.builder(Component.translatable("gui.ae2.Cancel"), b -> answer(false))
-                .bounds(left + W - 118, by, 110, 18).build());
+        addRenderableWidget(new AE2Button(left + 8, by, 110, 18,
+                Component.translatable("gui.ae2.CraftErrorRetry"), b -> answer(true)));
+        addRenderableWidget(new AE2Button(left + W - 118, by, 110, 18,
+                Component.translatable("gui.ae2.Cancel"), b -> answer(false)));
     }
 
     private void answer(boolean retry) {

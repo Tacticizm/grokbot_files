@@ -12,17 +12,18 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
-/** 9 pattern slots + player inventory. The queue list is pushed to the client with {@link ModNetwork.QueueSync}. */
+/**
+ * 9 pattern slots, the 27-slot output buffer, and the player inventory. The queue list is pushed to the
+ * client with {@link ModNetwork.QueueSync}. Output slots stay on the main view; the queue is only a list.
+ */
 public class BundleProviderMenu extends AbstractContainerMenu {
-    public static final int SLOT_X = 8, SLOT_Y = 18, INV_Y = 132;
-
     public final BlockPos pos;
     @Nullable
     private final BundleProviderBlockEntity be; // server side only
     private final Player player;
     private int sentVersion = -1;
 
-    public static final int TAB_PATTERNS = 0, TAB_QUEUE = 1, TAB_OUTPUT = 2;
+    public static final int TAB_PATTERNS = 0, TAB_QUEUE = 1;
 
     /** Client view state. */
     public int tab = TAB_PATTERNS;
@@ -43,7 +44,7 @@ public class BundleProviderMenu extends AbstractContainerMenu {
         this.be = be;
         this.player = inv.player;
         for (int i = 0; i < BundleProviderBlockEntity.SLOTS; i++) {
-            addSlot(new Slot(patterns, i, SLOT_X + (i % 3) * 18, SLOT_Y + (i / 3) * 18) {
+            addSlot(new Slot(patterns, i, GuiLayout.PROV_PATTERN_X + (i % 3) * 18, GuiLayout.PROV_PATTERN_Y + (i / 3) * 18) {
                 @Override
                 public boolean mayPlace(ItemStack stack) {
                     return stack.is(ModItems.BUNDLE_PATTERN.get());
@@ -51,24 +52,20 @@ public class BundleProviderMenu extends AbstractContainerMenu {
 
                 @Override
                 public boolean isActive() {
+                    // Tab is client view state. The server copy stays on the patterns tab, so clicks still land.
                     return tab == TAB_PATTERNS;
                 }
             });
         }
         for (int i = 0; i < BundleProviderBlockEntity.OUTPUT_SLOTS; i++) {
-            addSlot(new Slot(output, i, SLOT_X + (i % 9) * 18, SLOT_Y + (i / 9) * 18) {
+            addSlot(new Slot(output, i, GuiLayout.PROV_OUT_X + (i % 9) * 18, GuiLayout.PROV_OUT_Y + (i / 9) * 18) {
                 @Override
                 public boolean mayPlace(ItemStack stack) {
                     return false;
                 }
-
-                @Override
-                public boolean isActive() {
-                    return tab == TAB_OUTPUT;
-                }
             });
         }
-        addStandardInventorySlots(inv, 8, INV_Y);
+        addStandardInventorySlots(inv, GuiLayout.PROV_INV_X, GuiLayout.PROV_INV_Y);
     }
 
     @Override
