@@ -27,7 +27,9 @@ public class MissingPiecesScreen extends Screen {
     private int left, top, height0;
 
     public MissingPiecesScreen(ModNetwork.OpenMissing data) {
-        super(Component.translatable("screen.appliedcraftingbundles.missing.title"));
+        super(Component.translatable(data.entries().stream().anyMatch(e -> !e.missing().isEmpty())
+                ? "screen.appliedcraftingbundles.missing.title"
+                : "screen.appliedcraftingbundles.confirm.title"));
         this.data = data;
     }
 
@@ -74,7 +76,7 @@ public class MissingPiecesScreen extends Screen {
         }
         int by = top + height0 - 24;
         var craft = addRenderableWidget(new AE2Button(left + 8, by, 110, 18,
-                Component.translatable("screen.appliedcraftingbundles.missing.craft"), b -> answer(true)));
+                Component.translatable("screen.appliedcraftingbundles.missing.start"), b -> answer(true)));
         craft.active = !ticked.isEmpty();
         addRenderableWidget(new AE2Button(left + W - 118, by, 110, 18,
                 Component.translatable("gui.cancel"), b -> answer(false)));

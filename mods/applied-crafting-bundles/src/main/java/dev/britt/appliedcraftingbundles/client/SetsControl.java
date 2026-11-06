@@ -1,6 +1,6 @@
 package dev.britt.appliedcraftingbundles.client;
 
-import appeng.util.Icon;
+import appeng.client.gui.widgets.AE2Button;
 import dev.britt.appliedcraftingbundles.ModNetwork;
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
@@ -9,31 +9,25 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
 /**
- * Sets count: typed number plus AE2 arrow buttons. Click steps by 1, Shift-click by 10, clamped to
+ * Sets count: typed number plus AE2 minus/plus buttons. Click steps by 1, Shift-click by 10, clamped to
  * {@code 1..MAX_SETS}.
  */
 final class SetsControl {
     private final AeTextField field;
-    private final AeIconButton dec;
-    private final AeIconButton inc;
+    private final AE2Button dec;
+    private final AE2Button inc;
     private boolean writing;
 
     SetsControl(Consumer<AbstractWidget> add, Font font, int x, int y) {
-        dec = new AeIconButton(Icon.ARROW_LEFT, Component.translatable("screen.appliedcraftingbundles.sets.dec"),
-                b -> step(-1));
-        dec.setX(x);
-        dec.setY(y);
+        dec = new AE2Button(x, y, 14, 14, Component.literal("-"), b -> step(-1));
         add.accept(dec);
-        field = new AeTextField(font, x + 18, y + 2, 24, 12, Component.translatable("screen.appliedcraftingbundles.sets"));
+        field = new AeTextField(font, x + 16, y + 1, 18, 12, Component.translatable("screen.appliedcraftingbundles.sets"));
         field.setMaxLength(2);
         field.setValue("1");
         field.setFilter(s -> s.chars().allMatch(Character::isDigit));
         field.setResponder(this::onType);
         add.accept(field);
-        inc = new AeIconButton(Icon.ARROW_RIGHT, Component.translatable("screen.appliedcraftingbundles.sets.inc"),
-                b -> step(1));
-        inc.setX(x + 44);
-        inc.setY(y);
+        inc = new AE2Button(x + 36, y, 14, 14, Component.literal("+"), b -> step(1));
         add.accept(inc);
     }
 

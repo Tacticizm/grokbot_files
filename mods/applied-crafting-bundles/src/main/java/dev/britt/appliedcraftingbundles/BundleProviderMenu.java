@@ -44,7 +44,7 @@ public class BundleProviderMenu extends AbstractContainerMenu {
         this.be = be;
         this.player = inv.player;
         for (int i = 0; i < BundleProviderBlockEntity.SLOTS; i++) {
-            addSlot(new Slot(patterns, i, GuiLayout.PROV_PATTERN_X + (i % 3) * 18, GuiLayout.PROV_PATTERN_Y + (i / 3) * 18) {
+            addSlot(new Slot(patterns, i, GuiLayout.PROV_PATTERN_X + i * 18, GuiLayout.PROV_PATTERN_Y) {
                 @Override
                 public boolean mayPlace(ItemStack stack) {
                     return stack.is(ModItems.BUNDLE_PATTERN.get());

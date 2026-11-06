@@ -77,6 +77,13 @@ public class BundleEncoderScreen extends AbstractContainerScreen<BundleEncoderMe
         }
         addRenderableWidget(new AE2Button(leftPos + GuiLayout.TERM_ENCODE_X, topPos + GuiLayout.TERM_ENCODE_Y, 70, 16,
                 Component.translatable("screen.appliedcraftingbundles.encoder.save"), b -> save()));
+        addRenderableWidget(new AE2Button(leftPos + GuiLayout.TERM_ENCODE_X + 74, topPos + GuiLayout.TERM_ENCODE_Y, 52, 16,
+                Component.translatable("screen.appliedcraftingbundles.encoder.clear"), b -> clearGrid()));
+    }
+
+    /** AE2's Clear: empty the encoding grid. Encode with an empty grid then turns the pattern blank. */
+    private void clearGrid() {
+        java.util.Arrays.fill(cells, null);
     }
 
     private void addWirelessTabs() {
@@ -86,13 +93,13 @@ public class BundleEncoderScreen extends AbstractContainerScreen<BundleEncoderMe
                     TabHandoff.arm(false, leftPos, topPos, width, height);
                     ClientPacketDistributor.sendToServer(new ModNetwork.WirelessTab(menu.wirelessHand, false));
                 });
-        provider.setStyle(TabButton.Style.HORIZONTAL);
+        provider.setStyle(TabButton.Style.BOX);
         provider.setX(leftPos + GuiLayout.TAB_X);
         provider.setY(topPos + GuiLayout.TAB_Y);
         addRenderableWidget(provider);
         var encoder = new TabButton(new ItemStack(ModItems.BUNDLE_ENCODER.get()),
                 Component.translatable("screen.appliedcraftingbundles.tab.encoder"), b -> {});
-        encoder.setStyle(TabButton.Style.HORIZONTAL);
+        encoder.setStyle(TabButton.Style.BOX);
         encoder.setSelected(true);
         encoder.setX(leftPos + GuiLayout.TAB_X + GuiLayout.TAB + 2);
         encoder.setY(topPos + GuiLayout.TAB_Y);

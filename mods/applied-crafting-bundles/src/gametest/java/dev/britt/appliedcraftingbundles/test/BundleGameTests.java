@@ -10,6 +10,7 @@ import appeng.blockentity.storage.DriveBlockEntity;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import dev.britt.appliedcraftingbundles.BundleContents;
+import dev.britt.appliedcraftingbundles.BundleEncoding;
 import dev.britt.appliedcraftingbundles.BundlePatternItem;
 import dev.britt.appliedcraftingbundles.BundleProviderBlockEntity;
 import dev.britt.appliedcraftingbundles.BundleProviderBlockEntity.Outcome;
@@ -31,6 +32,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Items;
@@ -56,6 +58,8 @@ public final class BundleGameTests {
     private static final Identifier RECIPES = id("recipes_load");
     private static final Identifier STACKING = id("patterns_stack_until_encoded");
     private static final Identifier IN_STORAGE = id("provider_uses_stored_items");
+    private static final Identifier CONFIRM = id("confirm_holds_until_start");
+    private static final Identifier CLEAR = id("pattern_clears_like_ae2");
 
     @SubscribeEvent
     static void registerFunctions(RegisterEvent event) {
@@ -68,6 +72,8 @@ public final class BundleGameTests {
         event.register(Registries.TEST_FUNCTION, RECIPES, () -> (Consumer<GameTestHelper>) BundleGameTests::recipesLoad);
         event.register(Registries.TEST_FUNCTION, STACKING, () -> (Consumer<GameTestHelper>) BundleGameTests::stacking);
         event.register(Registries.TEST_FUNCTION, IN_STORAGE, () -> (Consumer<GameTestHelper>) BundleGameTests::usesStoredItems);
+        event.register(Registries.TEST_FUNCTION, CONFIRM, () -> (Consumer<GameTestHelper>) BundleGameTests::confirmHoldsUntilStart);
+        event.register(Registries.TEST_FUNCTION, CLEAR, () -> (Consumer<GameTestHelper>) BundleGameTests::patternClearsLikeAe2);
         event.register(Registries.TEST_FUNCTION, QUEUES, () -> (Consumer<GameTestHelper>) BundleGameTests::queuesWhenOneCpu);
     }
 
@@ -85,6 +91,8 @@ public final class BundleGameTests {
         e.registerTest(RECIPES, new FunctionGameTestInstance(fn(RECIPES), new TestData<>(env, id("empty"), 20, 0, true)));
         e.registerTest(STACKING, new FunctionGameTestInstance(fn(STACKING), new TestData<>(env, id("empty"), 20, 0, true)));
         e.registerTest(IN_STORAGE, new FunctionGameTestInstance(fn(IN_STORAGE), new TestData<>(env, id("empty"), 400, 0, true)));
+        e.registerTest(CONFIRM, new FunctionGameTestInstance(fn(CONFIRM), new TestData<>(env, id("empty"), 400, 0, true)));
+        e.registerTest(CLEAR, new FunctionGameTestInstance(fn(CLEAR), new TestData<>(env, id("empty"), 20, 0, true)));
         e.registerTest(QUEUES, new FunctionGameTestInstance(fn(QUEUES), new TestData<>(env, id("empty"), 2400, 0, true)));
         e.registerTest(NO_CHANNEL, new FunctionGameTestInstance(fn(NO_CHANNEL), new TestData<>(env, id("wide"), 200, 0, true)));
         e.registerTest(CRAFTS, new FunctionGameTestInstance(fn(CRAFTS), new TestData<>(env, id("empty"), 1200, 0, true)));
@@ -197,6 +205,54 @@ public final class BundleGameTests {
      * Bundle Encoder part on a cable: it needs a channel (gets one on a small ad-hoc network), and its
      * input/output slots follow the edit-in-place / copy-to-blank / encode-a-blank rules.
      */
+    /**
+     * Shift-right-click turns an encoded stack into the same number of blanks. Encoding an empty grid
+     * does the same to the pattern that would have been rewritten, and leaves a stack of blanks alone.
+     */
+    private static void patternClearsLikeAe2(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var player = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.setShiftKeyDown(true);
+        var encoded = BundlePatternItem.encoded(new BundleContents("Farm set", List.of(new ItemStackTemplate(Items.WHEAT, 4))));
+        encoded.setCount(3);
+        int count = encoded.getCount();
+        player.setItemInHand(InteractionHand.MAIN_HAND, encoded);
+        ModItems.BUNDLE_PATTERN.get().use(level, player, InteractionHand.MAIN_HAND);
+        var held = player.getItemInHand(InteractionHand.MAIN_HAND);
+        if (!BundleEncoding.isBlank(held) || held.getCount() != count) {
+            helper.fail("shift-use should blank the stack, got " + nameOf(held) + " x" + held.getCount());
+            return;
+        }
+        player.setShiftKeyDown(false);
+        var again = BundlePatternItem.encoded(new BundleContents("Farm set", List.of(new ItemStackTemplate(Items.WHEAT, 1))));
+        player.setItemInHand(InteractionHand.MAIN_HAND, again);
+        ModItems.BUNDLE_PATTERN.get().use(level, player, InteractionHand.MAIN_HAND);
+        if (!nameOf(player.getItemInHand(InteractionHand.MAIN_HAND)).equals("Farm set")) {
+            helper.fail("a normal right-click must leave the encoded pattern");
+            return;
+        }
+
+        var grid = BundleEncoding.newContainer(() -> {});
+        grid.setItem(0, BundlePatternItem.encoded(new BundleContents("In", List.of(new ItemStackTemplate(Items.DIRT, 1)))));
+        grid.setItem(1, BundlePatternItem.encoded(new BundleContents("Out", List.of(new ItemStackTemplate(Items.STONE, 1)))));
+        if (!BundleEncoding.encode(grid, 0, 1, player, BundleContents.EMPTY)
+                || !BundleEncoding.isBlank(grid.getItem(0)) || !nameOf(grid.getItem(1)).equals("Out")) {
+            helper.fail("empty encode should blank the in-place pattern only");
+            return;
+        }
+        grid.setItem(0, new ItemStack(ModItems.BUNDLE_PATTERN.get(), 4));
+        if (!BundleEncoding.encode(grid, 0, 1, player, BundleContents.EMPTY)
+                || grid.getItem(0).getCount() != 4 || !BundleEncoding.isBlank(grid.getItem(1))) {
+            helper.fail("empty encode should blank the output pattern and keep input blanks");
+            return;
+        }
+        if (BundleEncoding.encode(grid, 0, 1, player, BundleContents.EMPTY)) {
+            helper.fail("empty encode with nothing encoded should do nothing");
+            return;
+        }
+        helper.succeed();
+    }
+
     private static void encoderPart(GameTestHelper helper) {
         var level = helper.getLevel();
         var player = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
@@ -445,6 +501,65 @@ public final class BundleGameTests {
                         + " ground=" + level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, player.getBoundingBox().inflate(3)).size());
             }
             level.getServer().getPlayerList().remove(player);
+        });
+    }
+
+    /**
+     * A normal Craft click holds a complete in-storage plan for Start. Shift-click (immediate) still submits it.
+     * Nothing is pulled until that submit.
+     */
+    private static void confirmHoldsUntilStart(GameTestHelper helper) {
+        BlockPos drivePos = new BlockPos(1, 1, 1), ourPos = new BlockPos(2, 1, 1);
+        helper.setBlock(new BlockPos(0, 1, 1), AEBlocks.CREATIVE_ENERGY_CELL.block());
+        helper.setBlock(drivePos, AEBlocks.DRIVE.block());
+        helper.setBlock(ourPos, ModBlocks.BUNDLE_PROVIDER.get());
+        helper.getBlockEntity(drivePos, DriveBlockEntity.class).getInternalInventory().addItems(AEItems.ITEM_CELL_4K.stack());
+        var be = helper.getBlockEntity(ourPos, BundleProviderBlockEntity.class);
+        be.insertPattern(bundle("Dirt", new ItemStackTemplate(Items.DIRT, 2)));
+        var outcome = new AtomicReference<Outcome>();
+        var step = new int[1];
+        helper.succeedWhen(() -> {
+            IGrid grid = be.getActionableNode() == null ? null : be.getActionableNode().getGrid();
+            if (grid == null || !be.isNetworkActive()) {
+                helper.fail("network not ready");
+            }
+            var storage = grid.getStorageService().getInventory();
+            if (step[0] == 0) {
+                storage.insert(AEItemKey.of(Items.DIRT), 8, Actionable.MODULATE, IActionSource.empty());
+                step[0] = 1;
+                helper.fail("stocked, waiting for storage cache");
+            }
+            if (step[0] == 1) {
+                step[0] = 2;
+                be.request(be.getBundles().getFirst(), 1, false, outcome::set);
+            }
+            if (step[0] == 2) {
+                if (!(outcome.get() instanceof Outcome.Missing)) {
+                    helper.fail("confirm did not hold the plan: " + outcome.get());
+                    return;
+                }
+                if (!be.getPieces().isEmpty() || countOutput(be, Items.DIRT) != 0) {
+                    throw new IllegalStateException("plan was submitted before Start");
+                }
+                var planned = be.getPendingEntries();
+                if (planned.size() != 1 || planned.getFirst().isMissing() || !planned.getFirst().fullyInStock()) {
+                    throw new IllegalStateException("dirt should be fully in storage: " + planned);
+                }
+                be.cancelPending();
+                outcome.set(null);
+                step[0] = 3;
+                be.request(be.getBundles().getFirst(), 1, outcome::set);
+            }
+            if (step[0] == 3 && !(outcome.get() instanceof Outcome.Started s)) {
+                helper.fail("immediate request not started: " + outcome.get());
+                return;
+            }
+            if (step[0] == 3) {
+                if (countOutput(be, Items.DIRT) != 2) {
+                    throw new IllegalStateException("shift-click should move 2 dirt to the output");
+                }
+                helper.succeed();
+            }
         });
     }
 

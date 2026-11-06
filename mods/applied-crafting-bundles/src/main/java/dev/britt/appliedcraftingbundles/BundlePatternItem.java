@@ -9,6 +9,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
@@ -26,6 +27,34 @@ public class BundlePatternItem extends Item {
         stack.set(ModComponents.BUNDLE_CONTENTS.get(), contents);
         stack.set(net.minecraft.core.component.DataComponents.MAX_STACK_SIZE, 1);
         return stack;
+    }
+
+    /**
+     * Shift-right-click, same as AE2's encoded patterns: the stack becomes that many blank patterns.
+     * A normal right-click is left alone.
+     */
+    @Override
+    public InteractionResult use(Level level, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        if (!player.isShiftKeyDown() || !BundleEncoding.isEncoded(stack)) {
+            return InteractionResult.PASS;
+        }
+        if (!level.isClientSide()) {
+            player.setItemInHand(hand, new ItemStack(this, stack.getCount()));
+        }
+        return InteractionResult.SUCCESS;
+    }
+
+    @Override
+    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext ctx) {
+        Player player = ctx.getPlayer();
+        if (player == null || !player.isShiftKeyDown() || !BundleEncoding.isEncoded(stack)) {
+            return InteractionResult.PASS;
+        }
+        if (!ctx.getLevel().isClientSide()) {
+            player.setItemInHand(ctx.getHand(), new ItemStack(this, stack.getCount()));
+        }
+        return InteractionResult.SUCCESS;
     }
 
     @Override

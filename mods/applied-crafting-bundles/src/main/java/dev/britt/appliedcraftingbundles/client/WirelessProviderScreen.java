@@ -10,13 +10,13 @@ import dev.britt.appliedcraftingbundles.ModComponents;
 import dev.britt.appliedcraftingbundles.ModItems;
 import dev.britt.appliedcraftingbundles.ModNetwork;
 import dev.britt.appliedcraftingbundles.WirelessInventory;
-import java.util.ArrayList;
-import java.util.List;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.lwjgl.glfw.GLFW;
@@ -26,8 +26,10 @@ import org.lwjgl.glfw.GLFW;
  * Crafted items go to the player (then the network); this screen has no output buffer.
  */
 public class WirelessProviderScreen extends AbstractContainerScreen<WirelessProviderMenu> {
-    private final List<AE2Button> requestButtons = new ArrayList<>();
+    private AE2Button craftButton;
     private SetsControl sets;
+    /** Slot chosen by click or hover. {@code -1} until the player focuses one, then the first encoded pattern shows. */
+    private int selected = -1;
 
     public WirelessProviderScreen(WirelessProviderMenu menu, Inventory inv, Component title) {
         super(menu, inv, title, GuiLayout.TERM_W, GuiLayout.TERM_H);
@@ -57,10 +59,9 @@ public class WirelessProviderScreen extends AbstractContainerScreen<WirelessProv
                 topPos = top;
             }
         });
-        requestButtons.clear();
         var provider = new TabButton(new ItemStack(ModBlocks.BUNDLE_PROVIDER_ITEM.get()),
                 Component.translatable("screen.appliedcraftingbundles.tab.provider"), b -> {});
-        provider.setStyle(TabButton.Style.HORIZONTAL);
+        provider.setStyle(TabButton.Style.BOX);
         provider.setSelected(true);
         provider.setX(leftPos + GuiLayout.TAB_X);
         provider.setY(topPos + GuiLayout.TAB_Y);
@@ -71,22 +72,24 @@ public class WirelessProviderScreen extends AbstractContainerScreen<WirelessProv
                     TabHandoff.arm(true, leftPos, topPos, width, height);
                     ClientPacketDistributor.sendToServer(new ModNetwork.WirelessTab(menu.hand, true));
                 });
-        encoder.setStyle(TabButton.Style.HORIZONTAL);
+        encoder.setStyle(TabButton.Style.BOX);
         encoder.setX(leftPos + GuiLayout.TAB_X + GuiLayout.TAB + 2);
         encoder.setY(topPos + GuiLayout.TAB_Y);
         addRenderableWidget(encoder);
         sets = new SetsControl(this::addRenderableWidget, font, leftPos + 34, topPos + GuiLayout.TERM_SETS_Y);
-        for (int i = 0; i < WirelessInventory.PATTERNS; i++) {
-            int slot = i;
-            requestButtons.add(addRenderableWidget(new AE2Button(
-                    leftPos + GuiLayout.TERM_REQ_X, topPos + GuiLayout.TERM_LIST_Y + i * GuiLayout.TERM_ROW,
-                    14, 10, Component.literal(">"), b -> request(slot))));
-        }
+        craftButton = addRenderableWidget(new AE2Button(leftPos + GuiLayout.TERM_CRAFT_X, topPos + GuiLayout.TERM_CRAFT_Y,
+                GuiLayout.TERM_CRAFT_W, GuiLayout.TERM_CRAFT_H,
+                Component.translatable("screen.appliedcraftingbundles.craft"), b -> request()));
         updateWidgets();
     }
 
-    private void request(int slot) {
-        ClientPacketDistributor.sendToServer(new ModNetwork.WirelessRequest(menu.hand, slot, sets.value()));
+    private void request() {
+        int slot = shownSlot();
+        if (slot < 0 || bundleAt(slot) == null) {
+            return;
+        }
+        ClientPacketDistributor.sendToServer(
+                new ModNetwork.WirelessRequest(menu.hand, slot, sets.value(), minecraft.hasShiftDown()));
     }
 
     private BundleContents bundleAt(int slot) {
@@ -94,18 +97,66 @@ public class WirelessProviderScreen extends AbstractContainerScreen<WirelessProv
         return c == null || c.isEmpty() ? null : c;
     }
 
-    private void updateWidgets() {
-        for (int i = 0; i < requestButtons.size(); i++) {
-            requestButtons.get(i).visible = bundleAt(i) != null;
+    private boolean patternSlot(Slot slot) {
+        return slot != null && slot.index >= 0 && slot.index < WirelessInventory.PATTERNS;
+    }
+
+    private int shownSlot() {
+        if (selected >= 0 && selected < WirelessInventory.PATTERNS) {
+            return selected;
         }
+        for (int i = 0; i < WirelessInventory.PATTERNS; i++) {
+            if (bundleAt(i) != null) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private void focus(int slot) {
+        if (slot >= 0 && slot < WirelessInventory.PATTERNS) {
+            selected = slot;
+        }
+    }
+
+    private void updateWidgets() {
+        int slot = shownSlot();
+        craftButton.visible = slot >= 0 && bundleAt(slot) != null;
     }
 
     @Override
     protected void containerTick() {
         super.containerTick();
         TabHandoff.pinCursor();
+        if (patternSlot(hoveredSlot)) {
+            focus(hoveredSlot.index);
+        }
         sets.normalizeIfIdle();
         updateWidgets();
+        craftButton.setMessage(Component.translatable(minecraft.hasShiftDown()
+                ? "screen.appliedcraftingbundles.start" : "screen.appliedcraftingbundles.craft"));
+    }
+
+    @Override
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        int hit = patternAt(event.x(), event.y());
+        if (hit >= 0) {
+            focus(hit);
+            updateWidgets();
+        }
+        return super.mouseClicked(event, doubleClick);
+    }
+
+    private int patternAt(double mx, double my) {
+        for (int i = 0; i < WirelessInventory.PATTERNS; i++) {
+            var slot = menu.slots.get(i);
+            int x = leftPos + slot.x;
+            int y = topPos + slot.y;
+            if (mx >= x && mx < x + 16 && my >= y && my < y + 16) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     @Override
@@ -128,15 +179,33 @@ public class WirelessProviderScreen extends AbstractContainerScreen<WirelessProv
     @Override
     protected void extractLabels(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         super.extractLabels(g, mouseX, mouseY);
+        int slot = shownSlot();
+        if (slot >= 0) {
+            mark(g, GuiLayout.TERM_PATTERN_X + slot * 18, GuiLayout.TERM_PATTERN_Y);
+        }
         g.text(font, Component.translatable("screen.appliedcraftingbundles.sets"), 8, GuiLayout.TERM_SETS_Y + 4,
                 Panels.TEXT, false);
-        for (int i = 0; i < WirelessInventory.PATTERNS; i++) {
-            var b = bundleAt(i);
-            if (b != null) {
-                String name = b.name().isBlank() ? "#" + (i + 1) : b.name();
-                g.text(font, font.plainSubstrByWidth(name, GuiLayout.TERM_REQ_X - GuiLayout.TERM_LIST_X - 2),
-                        GuiLayout.TERM_LIST_X, GuiLayout.TERM_LIST_Y + i * GuiLayout.TERM_ROW + 1, Panels.TEXT, false);
-            }
+        var bundle = slot >= 0 ? bundleAt(slot) : null;
+        if (bundle == null) {
+            return;
         }
+        String name = bundle.name().isBlank() ? "#" + (slot + 1) : bundle.name();
+        int max = GuiLayout.TERM_CRAFT_X - GuiLayout.TERM_BUNDLE_X - 6;
+        String shown = font.plainSubstrByWidth(name, max);
+        g.text(font, shown, GuiLayout.TERM_BUNDLE_X, GuiLayout.TERM_BUNDLE_Y, Panels.TEXT, false);
+        if (!shown.equals(name) && mouseX - leftPos >= GuiLayout.TERM_BUNDLE_X
+                && mouseX - leftPos < GuiLayout.TERM_CRAFT_X
+                && mouseY - topPos >= GuiLayout.TERM_BUNDLE_Y - 2
+                && mouseY - topPos < GuiLayout.TERM_BUNDLE_Y + 12) {
+            g.setTooltipForNextFrame(Component.literal(name), mouseX, mouseY);
+        }
+    }
+
+    private static void mark(GuiGraphicsExtractor g, int x, int y) {
+        int c = 0xFF1F6F8A;
+        g.fill(x, y, x + 16, y + 1, c);
+        g.fill(x, y + 15, x + 16, y + 16, c);
+        g.fill(x, y, x + 1, y + 16, c);
+        g.fill(x + 15, y, x + 16, y + 16, c);
     }
 }

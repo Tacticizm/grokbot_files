@@ -104,11 +104,13 @@ public final class ModNetwork {
         }
     }
 
-    public record RequestBundle(BlockPos pos, int slot, int sets) implements CustomPacketPayload {
+    /** {@code immediate} is Shift-click: submit a complete plan. Otherwise hold it for Start. */
+    public record RequestBundle(BlockPos pos, int slot, int sets, boolean immediate) implements CustomPacketPayload {
         public static final Type<RequestBundle> TYPE = payloadType("request_bundle");
         static final StreamCodec<RegistryFriendlyByteBuf, RequestBundle> CODEC = StreamCodec.composite(
                 BlockPos.STREAM_CODEC, RequestBundle::pos, ByteBufCodecs.VAR_INT, RequestBundle::slot,
-                ByteBufCodecs.VAR_INT, RequestBundle::sets, RequestBundle::new);
+                ByteBufCodecs.VAR_INT, RequestBundle::sets, ByteBufCodecs.BOOL, RequestBundle::immediate,
+                RequestBundle::new);
 
         @Override
         public Type<RequestBundle> type() {
@@ -127,11 +129,13 @@ public final class ModNetwork {
         }
     }
 
-    public record WirelessRequest(InteractionHand hand, int slot, int sets) implements CustomPacketPayload {
+    /** {@code immediate} is Shift-click: submit a complete plan. Otherwise hold it for Start. */
+    public record WirelessRequest(InteractionHand hand, int slot, int sets, boolean immediate) implements CustomPacketPayload {
         public static final Type<WirelessRequest> TYPE = payloadType("wireless_request");
         static final StreamCodec<RegistryFriendlyByteBuf, WirelessRequest> CODEC = StreamCodec.composite(
                 HAND_CODEC, WirelessRequest::hand, ByteBufCodecs.VAR_INT, WirelessRequest::slot,
-                ByteBufCodecs.VAR_INT, WirelessRequest::sets, WirelessRequest::new);
+                ByteBufCodecs.VAR_INT, WirelessRequest::sets, ByteBufCodecs.BOOL, WirelessRequest::immediate,
+                WirelessRequest::new);
 
         @Override
         public Type<WirelessRequest> type() {
@@ -253,7 +257,8 @@ public final class ModNetwork {
             return;
         }
         int sets = Math.clamp(p.sets(), 1, MAX_SETS);
-        be.request(bundle, sets, outcome -> report(sp, be.getBlockPos(), false, bundle.name(), be::getPendingEntries, outcome));
+        be.request(bundle, sets, p.immediate(),
+                outcome -> report(sp, be.getBlockPos(), false, bundle.name(), be::getPendingEntries, outcome));
     }
 
     private static void onWirelessRequest(WirelessRequest p, IPayloadContext ctx) {
@@ -262,7 +267,7 @@ public final class ModNetwork {
         }
         var bundle = new WirelessInventory(sp, p.hand()).bundleInSlot(p.slot());
         String name = bundle == null ? "" : bundle.name();
-        WirelessRequests.request(sp, p.hand(), p.slot(), Math.clamp(p.sets(), 1, MAX_SETS),
+        WirelessRequests.request(sp, p.hand(), p.slot(), Math.clamp(p.sets(), 1, MAX_SETS), p.immediate(),
                 outcome -> report(sp, sp.blockPosition(), true, name, () -> WirelessRequests.pendingEntries(sp), outcome));
     }
 

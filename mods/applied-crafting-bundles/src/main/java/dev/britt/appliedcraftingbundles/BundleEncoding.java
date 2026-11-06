@@ -38,10 +38,18 @@ public final class BundleEncoding {
      * Returns false if there was nothing to write to.
      */
     public static boolean encode(Container c, int in, int out, Player player, BundleContents contents) {
-        if (contents.isEmpty()) {
-            return false;
-        }
         ItemStack input = c.getItem(in), output = c.getItem(out);
+        if (contents.isEmpty()) {
+            // Same as AE2's encode on an empty grid: the encoded pattern becomes that many blanks.
+            int slot = isEncoded(input) ? in : isEncoded(output) ? out : -1;
+            if (slot < 0) {
+                return false;
+            }
+            ItemStack encoded = c.getItem(slot);
+            c.setItem(slot, new ItemStack(ModItems.BUNDLE_PATTERN.get(), encoded.getCount()));
+            c.setChanged();
+            return true;
+        }
         ItemStack result = BundlePatternItem.encoded(contents);
         if (isBlank(output)) {
             if (output.getCount() == 1) {

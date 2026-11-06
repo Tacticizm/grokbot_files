@@ -28,7 +28,7 @@ public class WirelessProviderMenu extends AbstractContainerMenu {
         this.hand = hand;
         this.patterns = patterns;
         for (int i = 0; i < WirelessInventory.PATTERNS; i++) {
-            addSlot(new Slot(patterns, i, GuiLayout.TERM_PATTERN_X + (i % 3) * 18, GuiLayout.TERM_PATTERN_Y + (i / 3) * 18) {
+            addSlot(new Slot(patterns, i, GuiLayout.TERM_PATTERN_X + i * 18, GuiLayout.TERM_PATTERN_Y) {
                 @Override
                 public boolean mayPlace(ItemStack stack) {
                     return stack.is(ModItems.BUNDLE_PATTERN.get()) && stack.has(ModComponents.BUNDLE_CONTENTS.get());

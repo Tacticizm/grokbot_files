@@ -89,7 +89,7 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
         record Failed(String reason) implements Outcome {}
     }
 
-    private record Pending(Calc calc, Consumer<Outcome> callback) {}
+    private record Pending(Calc calc, Consumer<Outcome> callback, boolean immediate) {}
 
     private final SimpleContainer patterns = newPatternContainer(this::setChanged);
     /** Finished and in-stock pieces land here. Players, hoppers and pipes can only take items out. */
@@ -362,8 +362,19 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
         setChanged();
     }
 
-    /** Start calculating every entry of {@code bundle} x {@code sets}. The callback runs on the server thread. */
+    /**
+     * Start calculating every entry of {@code bundle} x {@code sets}. The callback runs on the server thread.
+     * When nothing is missing, the jobs are submitted. This is the Shift-click path and what existing tests call.
+     */
     public void request(BundleContents bundle, int sets, Consumer<Outcome> callback) {
+        request(bundle, sets, true, callback);
+    }
+
+    /**
+     * Same plan as {@link #request(BundleContents, int, Consumer)}. {@code immediate} submits when the plan has no
+     * missing pieces. Otherwise the plan is held for the confirmation screen, including when every piece can proceed.
+     */
+    public void request(BundleContents bundle, int sets, boolean immediate, Consumer<Outcome> callback) {
         IGrid grid = mainNode.getGrid();
         if (grid == null || !mainNode.isActive()) {
             callback.accept(new Outcome.Failed("Bundle Provider is offline: it needs a powered ME network with a free channel"));
@@ -373,7 +384,7 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
             callback.accept(new Outcome.Failed("A bundle request is already pending"));
             return;
         }
-        calculating = new Pending(beginCalc(grid, level, this::source, bundle, sets), callback);
+        calculating = new Pending(beginCalc(grid, level, this::source, bundle, sets), callback, immediate);
     }
 
     /** Stock check + one AE2 calculation per entry. {@code futures} entries are null for pieces fully in storage. */
@@ -441,12 +452,13 @@ public class BundleProviderBlockEntity extends BlockEntity implements IInWorldGr
             p.callback().accept(new Outcome.Failed("Crafting calculation failed: " + e.getMessage()));
             return;
         }
-        if (planned.stream().noneMatch(PlannedEntry::isMissing)) {
-            p.callback().accept(startOrQueue(planned));
-        } else {
+        boolean hold = !p.immediate() || planned.stream().anyMatch(PlannedEntry::isMissing);
+        if (hold) {
             awaitingDecision = List.copyOf(planned);
             decisionDeadline = level.getGameTime() + 20 * 120;
             p.callback().accept(new Outcome.Missing(getMissingPieces()));
+        } else {
+            p.callback().accept(startOrQueue(planned));
         }
     }
 

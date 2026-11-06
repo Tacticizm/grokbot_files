@@ -52,13 +52,16 @@ public final class WirelessRequests {
         /** Planned pieces whose submit failed for lack of a crafting CPU, waiting for Retry or Cancel. */
         List<PlannedEntry> blocked = List.of();
         long deadline;
+        /** False holds a complete plan for the confirmation screen instead of submitting it. */
+        final boolean immediate;
 
         Session(IGrid grid, appeng.api.implementations.blockentities.IWirelessAccessPoint wap, Calc calc,
-                Consumer<Outcome> callback) {
+                Consumer<Outcome> callback, boolean immediate) {
             this.grid = grid;
             this.wap = wap;
             this.calc = calc;
             this.callback = callback;
+            this.immediate = immediate;
         }
     }
 
@@ -145,8 +148,17 @@ public final class WirelessRequests {
         return s == null ? List.of() : s.awaiting;
     }
 
-    /** Request bundle {@code slot} of the terminal in {@code hand}. The callback runs on the server thread. */
+    /** Shift-click: submit when the plan has no missing pieces. */
     public static void request(ServerPlayer sp, InteractionHand hand, int slot, int sets, Consumer<Outcome> callback) {
+        request(sp, hand, slot, sets, true, callback);
+    }
+
+    /**
+     * Request bundle {@code slot} of the terminal in {@code hand}. The callback runs on the server thread.
+     * {@code immediate} false still runs the same link, power, and planning checks, then waits for Start.
+     */
+    public static void request(ServerPlayer sp, InteractionHand hand, int slot, int sets, boolean immediate,
+            Consumer<Outcome> callback) {
         var stack = sp.getItemInHand(hand);
         if (!(stack.getItem() instanceof WirelessBundleTerminalItem item)) {
             return;
@@ -171,7 +183,7 @@ public final class WirelessRequests {
             return;
         }
         Calc calc = BundleProviderBlockEntity.beginCalc(grid, sp.level(), () -> IActionSource.ofMachine(wap), bundle, sets);
-        SESSIONS.put(sp.getUUID(), new Session(grid, wap, calc, callback));
+        SESSIONS.put(sp.getUUID(), new Session(grid, wap, calc, callback, immediate));
     }
 
     static void tick(ServerTickEvent.Post event) {
@@ -201,7 +213,7 @@ public final class WirelessRequests {
                 continue;
             }
             s.calc = null;
-            if (planned.stream().noneMatch(PlannedEntry::isMissing)) {
+            if (s.immediate && planned.stream().noneMatch(PlannedEntry::isMissing)) {
                 it.remove();
                 s.callback.accept(start(sp, s, planned));
             } else {
