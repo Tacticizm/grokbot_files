@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "ae2:blank_pattern",
+    "minecraft:bundle"
+  ],
+  "result": {
+    "id": "appliedcraftingbundles:bundle_pattern"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "parent": "ae2:item/display_base",
+  "textures": {
+    "front": "appliedcraftingbundles:part/bundle_encoder_bright",
+    "front_bright": "appliedcraftingbundles:part/bundle_encoder_bright",
+    "front_medium": "appliedcraftingbundles:part/bundle_encoder_medium",
+    "front_dark": "appliedcraftingbundles:part/bundle_encoder_dark"
+  }
+}

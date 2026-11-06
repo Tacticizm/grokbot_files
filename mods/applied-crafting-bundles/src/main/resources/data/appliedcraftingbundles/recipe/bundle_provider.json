@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "i": "#c:ingots/iron",
+    "l": "ae2:logic_processor",
+    "p": "ae2:pattern_provider",
+    "c": "ae2:crafting_unit"
+  },
+  "pattern": [
+    "ili",
+    "ipi",
+    "ici"
+  ],
+  "result": {
+    "id": "appliedcraftingbundles:bundle_provider"
+  }
+}
